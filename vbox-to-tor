@@ -107,8 +107,10 @@ add_ipfw_rules() {
     ${fwcmd} add $((cmd+3)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
     ${fwcmd} add $((cmd+4)) allow udp from ${vm_gw} to any 68 out via $iface
 
-    # SSH: allow host to VM SSH for local administration (you can add any additional ports)
+    # SSH: allow host to VM SSH for local administration (you can add any additional ports for HS)
     ${fwcmd} add $((cmd+5)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
+
+    # HS: you can add any additional host to VM TCP ports for TOR hidden services, or other purposes
     #${fwcmd} add $((cmd+6)) allow tcp from ${vm_gw} to ${vm_net} 1234 out via $iface keep-state
 
     # DENY: no other communication is allowed on this interface
