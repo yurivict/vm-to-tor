@@ -1,8 +1,25 @@
 # vbox-to-tor: Connector of VirtualBox machines to TOR for FreeBSD
 
-This is the FreeBSD service that allows to seamlessly connect the VirtualBox machines to TOR anonymity network. (https://www.torproject.org/)
+This is the FreeBSD service that allows to seamlessly connect any number of the VirtualBox machines to TOR anonymity network. (https://www.torproject.org/)
 
-## Installation
+## Installation (in less than 15 seconds)
+
+If you have the ports tree installed, all commands you need to achieve the same that is explained in the previous section:
+```shell
+cd /tmp
+git clone https://github.com/yurivict/tiny-dhcp-server
+cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
+cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
+rm -rf tiny-dhcp-server
+pkg install --automatic --no-repo-update python34
+(cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 make install clean)
+git clone https://github.com/yurivict/freebsd-vbox-to-tor
+cp freebsd-vbox-to-tor/vbox-to-tor /usr/local/etc/rc.d/
+cat freebsd-vbox-to-tor/rc.conf.sample >> /etc/rc.conf
+rm -rf freebsd-vbox-to-tor
+```
+
+## Installation (step by step)
 
 To install vbox-to-tor simply copy the file:<br/>
 ```shell
@@ -38,23 +55,6 @@ This setup allows you to run 3 different virtual machines connected to TOR (on t
 
 After this you need to choose "Bridged Adapter" as a networking adapter for VMs in VirtualBox Manager. You need to assign one of these tapN devices to the bridged interface of each VM you want to connect to TOR. As simple as that.
 
-## Installation in less than 15 seconds
-
-If you have the ports tree installed, all commands you need to achieve the same that is explained in the previous section:
-```shell
-cd /tmp
-git clone https://github.com/yurivict/tiny-dhcp-server
-cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
-cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
-rm -rf tiny-dhcp-server
-pkg install --automatic --no-repo-update python34
-(cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 make install clean)
-git clone https://github.com/yurivict/freebsd-vbox-to-tor
-cp freebsd-vbox-to-tor/vbox-to-tor /usr/local/etc/rc.d/
-cat freebsd-vbox-to-tor/rc.conf.sample >> /etc/rc.conf
-rm -rf freebsd-vbox-to-tor
-```
-
 ## How vbox-to-tor works?
 
 vbox-to-tor creates tunnel interfaces and sets them up for the use by the virtual machines. It also adds appropriate firewall rules that tunnel all communication originating in the VM directly to TOR running on the host.
@@ -62,11 +62,11 @@ vbox-to-tor creates tunnel interfaces and sets them up for the use by the virtua
 
 ## Background
 
-Tor project actively promotes the so-called "Tor Browser Bundle" (TBB). The security of TBB depends on the absence of bugs in the vast and complex codebase that firefox browser is built from. Many bugs have been identified in the firefox code in the past, particularly some severe JavaScript bugs that allowed for some breaches of anonymity of TBB users in the past. There is also no guarantee that more bugs won't be found. That is why many TBB users believe that it is much safer to disable JavaScript altogether.
+Tor project actively promotes the so-called "Tor Browser Bundle" (TBB). The security of TBB depends on the absence of bugs in the vast and complex codebase that firefox browser is built from. Many bugs have been found in the firefox code in the past, particularly some severe JavaScript bugs that allowed for some breaches of anonymity of TBB users in the past. There is also no guarantee that more bugs won't be found. That is why many TBB users believe that it is much safer to disable JavaScript altogether.
 
-vbox-to-tor took very different approach, "security by isolation". It allows user to easily connect the OS of his/her choice (VM guest) to the TOR router that runs on the host. This guest OS is completely isolated from the host andother guests, and can only connect to the TOR network. Therefore, regardless of what bugs any particular program that runs in the guest might have, such bugs just can't reveal the real IP of the user because anything they do, right or wrong, all goes only through the TOR connection.
+vbox-to-tor took very different approach, "security by isolation". It allows user to easily connect the OS of his/her choice (VM guest) to the TOR router that runs on the host. This guest OS is completely isolated from the host and other guests, and can only connect to the TOR network. Therefore, regardless of what bugs any particular program that runs in the guest might have, such bugs just can't reveal the real IP of the user because anything they do all goes only through the TOR connection through a very simple tunnel.
 
-There is another product, Whonix, that also chose security-by-isolation approach. However, Whonix requires the second VM to act as a tor host.
+There is another product, Whonix (https://www.whonix.org), that also chose security-by-isolation approach. However, Whonix requires the second VM to act as a tor host.
 
 vbox-to-tor works with virtually no overhead. It allows to run any number of guests, all completely isolated from each other and from the host.
 
