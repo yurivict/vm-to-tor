@@ -1,0 +1,210 @@
+#!/bin/sh 
+
+# Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
+
+# PROVIDE: vbox_to_tor
+# REQUIRE: LOGIN ipfw
+# KEYWORD: shutdown
+# BEFORE: tor
+
+# Add the following lines to /etc/rc.conf to enable vbox_to_tor:
+# vbox_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: NO
+# vbox_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
+#                                       At least one interface is required.
+# vbox_to_tor_net_patern (str):	Set it to the network pattern. Default: "172.16"
+#
+
+. /etc/rc.subr
+
+name=vbox_to_tor
+rcvar=vbox_to_tor_enable
+start_cmd="vbox_to_tor_start"
+stop_cmd="vbox_to_tor_stop"
+status_cmd="vbox_to_tor_status"
+
+ipfw_rule_base=3000
+torrc_signature="VBoxToTOR"
+
+load_rc_config ${name}
+
+: ${vbox_to_tor_enable="NO"}
+: ${vbox_to_tor_ifaces="tap0"}
+: ${vbox_to_tor_net_patern="172.16"}
+
+## internals
+
+check_tor_config() {
+  # check we can really write /usr/local/etc/tor/torrc
+  local rnd=$(jot -r 1 1000000 10000000)
+  (test -w /usr/local/etc/tor/torrc &&
+   test -w /usr/local/etc/tor &&
+   touch /usr/local/etc/tor/torrc.tmp.${rnd} &&
+   rm -rf /usr/local/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>/dev/null
+}
+
+ensure_kmod_loaded() {
+  if !(kldstat -v | grep $1 >/dev/null); then
+    kldload $1
+  fi
+}
+
+create_tap() {
+  for iface in $vbox_to_tor_ifaces; do
+    local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
+    if !(ifconfig $iface create && \
+         ifconfig $iface up && \
+         ifconfig $iface inet "${vbox_to_tor_net_patern}.${vm_id}.1/24" && \
+         chown root:vboxusers /dev/$iface && \
+         chmod 0660 /dev/$iface) >/dev/null 2>/dev/null; then
+      echo "Failed to create interface $iface" >&2
+      destroy_tap_silent
+      return 1
+    fi
+  done
+}
+
+destroy_tap() {
+  for iface in $vbox_to_tor_ifaces; do
+    if ! ifconfig $iface destroy >/dev/null 2>/dev/null; then
+      echo "Failed to destroy interface $iface" >&2
+      destroy_tap_silent
+      return 1
+    fi
+  done
+}
+
+destroy_tap_silent() {
+  for iface in $vbox_to_tor_ifaces; do
+    ifconfig $iface destroy >/dev/null 2>/dev/null
+  done
+}
+
+change_sysctl() {
+  # sysctl vars: VBox process needs to be able to open tapN, and listen on DNS port 53
+  sysctl net.link.tap.user_open=1 >/dev/null &&
+  sysctl net.inet.ip.portrange.reservedhigh=52 >/dev/null
+}
+
+add_ipfw_rules() {
+  local ifaces="$1"
+  local net_pattern="$2"
+  local cmd=$ipfw_rule_base
+  local fwcmd="/sbin/ipfw -q"
+
+  for iface in $ifaces; do
+    local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
+    local vm_net="${net_pattern}.${vm_id}.0/24"
+    local vm_gw="${net_pattern}.${vm_id}.1"
+
+    # TCP: sink all TCP from this net to Tor's TransPort
+    ${fwcmd} add $((cmd+0)) fwd ${vm_gw},9030 tcp from $vm_net to any in via $iface keep-state
+
+    # DNS: allow DNS to go to TOR DNS port
+    ${fwcmd} add $((cmd+1)) allow udp from ${vm_net} to ${vm_gw} 53 via $iface keep-state
+
+    # DHCP: sink DHCP to server on gateway (DHCP requests canhave both zero and non-zero source addresses)
+    ${fwcmd} add $((cmd+2)) fwd ${vm_gw} udp from ${vm_net} to 255.255.255.255 67 in via $iface
+    ${fwcmd} add $((cmd+3)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
+    ${fwcmd} add $((cmd+4)) allow udp from ${vm_gw} to any 68 out via $iface
+
+    # SSH: allow host to VM SSH for local administration (you can add any additional ports)
+    ${fwcmd} add $((cmd+5)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
+    #${fwcmd} add $((cmd+6)) allow tcp from ${vm_gw} to ${vm_net} 1234 out via $iface keep-state
+
+    # DENY: no other communication is allowed on this interface
+    ${fwcmd} add $((cmd+8)) deny all from any to any via $iface
+
+    # report
+    echo "Added ipfw rules for VM ${iface} on ${vm_net} to connect to TOR"
+    # move on
+    cmd=$((cmd+10))
+  done
+}
+
+write_tor_config_section() {
+  # The "right" way of doing this is through Tor control port.
+  # However, this requires authentication, and we don't have
+  # the password. vbox-to-tor is an automated process, and has
+  # to always succeed. So we just overwrite that file in the
+  # old fashion way. We add our signature to every line, so
+  # that we can always delete these lines when we are stopped.
+
+  local conf="/usr/local/etc/tor/torrc"
+  local conf_tmp_old="/usr/local/etc/tor/torrc.vbox-to-tor.old.tmp"
+  local conf_tmp_new="/usr/local/etc/tor/torrc.vbox-to-tor.new.tmp"
+
+  rm -f $conf_tmp_new $conf_tmp_old &&
+  (cat $conf &&
+   echo "# [$torrc_signature] BEGIN vbox-to-tor section" &&
+   (for iface in $vbox_to_tor_ifaces; do
+      local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
+      echo "DNSListenAddress   172.16.${vm_id}.1    # $torrc_signature"
+      echo "TransListenAddress 172.16.${vm_id}.1    # $torrc_signature"
+    done) &&
+   echo "# [$torrc_signature] END vbox-to-tor section") > $conf_tmp_new
+  if [ $? = 0 -a -f $conf_tmp_new ]; then
+    mv $conf $conf_tmp_old &&
+    mv $conf_tmp_new $conf &&
+    rm -f $conf_tmp_old
+  else
+    return 1
+  fi
+}
+
+delete_tor_config_section() {
+  local conf="/usr/local/etc/tor/torrc"
+  local conf_tmp_old="/usr/local/etc/tor/torrc.vbox-to-tor.old.tmp"
+  local conf_tmp_new="/usr/local/etc/tor/torrc.vbox-to-tor.new.tmp"
+
+  rm -f $conf_tmp_new $conf_tmp_old &&
+  (cat $conf | grep -v $torrc_signature) > $conf_tmp_new
+  if [ $? = 0 -a -f $conf_tmp_new ]; then
+    mv $conf $conf_tmp_old &&
+    mv $conf_tmp_new $conf &&
+    rm -f $conf_tmp_old
+  else
+    return 1
+  fi
+}
+
+delete_ipfw_rules() {
+  local ifaces="$1"
+  local cmd=$ipfw_rule_base
+  local fwcmd="/sbin/ipfw -q"
+  for iface in $ifaces; do
+    ${fwcmd} delete $(jot - $cmd $((cmd+9))) 2>/dev/null
+    cmd=$((cmd+10))
+  done
+}
+
+## interface for service manager
+
+vbox_to_tor_start() {
+  check_tor_config &&
+  ensure_kmod_loaded "if_tap" &&
+  ensure_kmod_loaded "ipfw" &&
+  create_tap &&
+  add_ipfw_rules "$vbox_to_tor_ifaces" "$vbox_to_tor_net_patern" &&
+  change_sysctl &&
+  write_tor_config_section
+}
+
+vbox_to_tor_status() {
+  for iface in $vbox_to_tor_ifaces; do
+    if ! (ls /dev/ | grep $iface >/dev/null 2>/dev/null); then
+      echo "$name is not on"
+      return 1
+    fi
+  done
+  echo "$name is on with interfaces '${vbox_to_tor_ifaces}'"
+}
+
+vbox_to_tor_stop() {
+  delete_ipfw_rules "$vbox_to_tor_ifaces" &&
+  destroy_tap &&
+  delete_tor_config_section
+}
+
+command="/usr/bin/true"
+
+run_rc_command "$1"
