@@ -1,10 +1,10 @@
-# vbox-to-tor: Connector of VirtualBox machines to TOR for FreeBSD
+# vbox-to-tor: Connect VirtualBox machines to TOR on FreeBSD
 
-This is the FreeBSD service that allows to seamlessly connect any number of the VirtualBox machines to TOR anonymity network. (https://www.torproject.org/)
+This is the FreeBSD service that allows to seamlessly connect any number of the VirtualBox machines to the TOR anonymity network. (https://www.torproject.org/)
 
 ## Installation (in less than 15 seconds)
 
-If you have the ports tree installed, all commands you need to achieve the same that is explained in the previous section:
+You need to have the ports tree installed. Here are all commands you need to install vbox-to-tor:
 ```shell
 cd /tmp
 git clone https://github.com/yurivict/tiny-dhcp-server
@@ -41,7 +41,7 @@ tiny_dhcp_server_enable="YES"
 tiny_dhcp_server_ifaces="${vbox_tor_ifaces}"
 ```
 
-vbox-to-tor also depends on this DHCP server: https://github.com/yurivict/tiny-dhcp-server. To install it execute these commands (which will need the ports tree):
+vbox-to-tor depends on this DHCP server: https://github.com/yurivict/tiny-dhcp-server. To install it execute these commands (which will require the ports tree):
 ```shell
 git clone https://github.com/yurivict/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
