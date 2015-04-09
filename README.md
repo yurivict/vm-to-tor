@@ -30,6 +30,8 @@ git clone https://github.com/yurivict/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
 rm -rf tiny-dhcp-server
+pkg install --automatic --no-repo-update python34
+(cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 PYTHON_DEFAULT_VERSION=3.4 make install clean)
 ```
 
 This setup allows you to run 3 different virtual machines connected to TOR (on tap0, tap1 and tap2 tunnels).
@@ -38,13 +40,15 @@ After this you need to choose "Bridged Adapter" as a networking adapter for VMs 
 
 ## Installation in less than 5 seconds
 
-All commands you need to achieve the same that is explained in the previous section:
+If you have the ports tree installed, all commands you need to achieve the same that is explained in the previous section:
 ```shell
 cd /tmp
 git clone https://github.com/yurivict/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
 rm -rf tiny-dhcp-server
+pkg install --automatic --no-repo-update python34
+(cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 PYTHON_DEFAULT_VERSION=3.4 make install clean)
 git clone https://github.com/yurivict/freebsd-vbox-to-tor
 cp freebsd-vbox-to-tor/vbox-to-tor /usr/local/etc/rc.d/
 cat freebsd-vbox-to-tor/rc.conf.sample >> /etc/rc.conf
