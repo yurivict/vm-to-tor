@@ -24,6 +24,14 @@ tiny_dhcp_server_enable="YES"
 tiny_dhcp_server_ifaces="${vbox_tor_ifaces}"
 ```
 
+vbox-to-tor also depends on this DHCP server: https://github.com/yurivict/tiny-dhcp-server. To install it execute these commands:
+```shell
+git clone https://github.com/yurivict/tiny-dhcp-server
+cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
+cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
+rm -rf tiny-dhcp-server
+```
+
 This allows you to run 3 different virtual machines connected to TOR (on tap0, tap1 and tap2 tunnels).
 
 After this you need to choose "Bridged Adapter" as a networking adapter for VMs in VirtualBox Manager. You need to assign one of these tapN devices to the bridged interface of each VM you want to connect to TOR. As simple as that.
@@ -43,6 +51,10 @@ vbox-to-tor took very different approach, "security by isolation". It allows use
 There is another product, Whonix, that also chose security-by-isolation approach. However, Whonix requires the second VM to act as a tor host.
 
 vbox-to-tor works with virtually no overhead. It allows to run any number of guests, all completely isolated from each other and from the host.
+
+## Caveats
+
+For better experience with vbox-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
 
 
 ## Donations
