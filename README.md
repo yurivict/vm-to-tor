@@ -30,10 +30,6 @@ git clone https://github.com/yurivict/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
 rm -rf tiny-dhcp-server
-git clone https://github.com/yurivict/freebsd-vbox-to-tor
-cp freebsd-vbox-to-tor/vbox-to-tor /usr/local/etc/rc.d/
-cat freebsd-vbox-to-tor/rc.conf.sample >> /etc/rc.conf
-rm -rf freebsd-vbox-to-tor
 ```
 
 This setup allows you to run 3 different virtual machines connected to TOR (on tap0, tap1 and tap2 tunnels).
@@ -49,6 +45,10 @@ git clone https://github.com/yurivict/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
 rm -rf tiny-dhcp-server
+git clone https://github.com/yurivict/freebsd-vbox-to-tor
+cp freebsd-vbox-to-tor/vbox-to-tor /usr/local/etc/rc.d/
+cat freebsd-vbox-to-tor/rc.conf.sample >> /etc/rc.conf
+rm -rf freebsd-vbox-to-tor
 ```
 
 ## How vbox-to-tor works?
