@@ -74,7 +74,7 @@ vbox-to-tor works with virtually no overhead, and installs as two standard FreeB
 ## Caveats
 
 * For better experience with vbox-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
-* Stopping vbox-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but that isn't a very important problem.
+* Stopping vbox-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but this isn't a very important problem.
 
 ## Ports
 
