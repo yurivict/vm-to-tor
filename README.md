@@ -4,7 +4,7 @@ This is the FreeBSD service that allows to seamlessly connect any number of the 
 
 ## Installation (in less than 15 seconds)
 
-You need to have the ports tree installed. Here are all commands you need to install vbox-to-tor:
+You need to have the ports tree installed. Here are all commands you need to install vbox-to-tor, execute them as root:
 ```shell
 cd /tmp
 git clone https://github.com/yurivict/tiny-dhcp-server
@@ -18,6 +18,14 @@ cp freebsd-vbox-to-tor/vbox-to-tor /usr/local/etc/rc.d/
 cat freebsd-vbox-to-tor/rc.conf.sample >> /etc/rc.conf
 rm -rf freebsd-vbox-to-tor
 ```
+
+In order to run it you need to have both VirtualBox and TOR installed and running, and execute these commands as root:
+```shell
+/usr/local/etc/rc.d/vbox-to-tor start
+/usr/local/etc/rc.d/tiny-dhcp-server start
+/usr/local/etc/rc.d/tor restart
+```
+Choose "Bridged Adapter" with one of the tapN interfaces for the VM you want to connect to TOR.
 
 ## Installation (step by step)
 
