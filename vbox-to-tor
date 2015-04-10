@@ -196,13 +196,23 @@ vbox_to_tor_start() {
 }
 
 vbox_to_tor_status() {
+  local cntOk=0
+  local cntNo=0
   for iface in $vbox_to_tor_ifaces; do
     if ! (ls /dev/ | grep $iface >/dev/null 2>/dev/null); then
-      echo "$name is not running"
-      return 1
+      cntNo=$((cntNo+1))
+    else
+      cntOk=$((cntOk+1))
     fi
   done
-  echo "$name is running with interfaces '${vbox_to_tor_ifaces}'"
+  if [ $cntNo = 0 ]; then
+    echo "$name is running with interfaces '${vbox_to_tor_ifaces}'"
+  elif [ $cntOk = 0 ]; then
+    echo "$name is not running ($vbox_to_tor_ifaces)"
+  else
+    echo "$name isn't properly setup: $cntNo of $((cntOk+cntNo)) interfaces doesn't exist ($vbox_to_tor_ifaces)"
+    return 1
+  fi
 }
 
 vbox_to_tor_stop() {
