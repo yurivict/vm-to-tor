@@ -84,7 +84,7 @@ vbox-to-tor works with virtually no overhead, and installs as two standard FreeB
 * For better experience with vbox-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
 * Stopping vbox-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but this isn't a very important problem.
 * Programs requiring UDP will not work, because TOR currently doesn't support UDP. Only DNS UDP is supported.
-* vbox-to-tor writes torrc files manually due to the lack of privileged auto-authentication feature in TorCtrl protocol. Normally TOR doesn't self modify torrc, but if any other programs (ex. arm or vidalia) would modify TOR config, vbox-to-tor changes to torrc can be either lost or impossible to remove for vbox-to-tor (see TOR ticket#15649)
+* vbox-to-tor writes torrc files directly due to the lack of the privileged auto-authentication feature in TorCtrl protocol. Normally TOR doesn't self-modify torrc, but if any other programs (ex. arm or vidalia) would modify TOR config, vbox-to-tor changes to torrc can be either lost or impossible to remove for vbox-to-tor (see TOR ticket#15649)
 
 ## Ports
 
