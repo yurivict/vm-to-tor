@@ -11,7 +11,7 @@
 # vbox_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: NO
 # vbox_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
 #                                       At least one interface is required.
-# vbox_to_tor_net_pattern (str):	Set it to the network pattern. Default: "172.16"
+# vbox_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
 # vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
 #
 
