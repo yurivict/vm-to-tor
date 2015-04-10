@@ -12,6 +12,7 @@
 # vbox_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
 #                                       At least one interface is required.
 # vbox_to_tor_net_pattern (str):	Set it to the network pattern. Default: "172.16"
+# vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
 #
 
 . /etc/rc.subr
@@ -22,7 +23,7 @@ start_cmd="vbox_to_tor_start"
 stop_cmd="vbox_to_tor_stop"
 status_cmd="vbox_to_tor_status"
 
-ipfw_rule_base=3000
+# signature that will be placed into torrc to later be able to find our lines
 torrc_signature="VBoxToTOR"
 
 load_rc_config ${name}
@@ -30,6 +31,7 @@ load_rc_config ${name}
 : ${vbox_to_tor_enable="NO"}
 : ${vbox_to_tor_ifaces="tap0"}
 : ${vbox_to_tor_net_pattern="172.16"}
+: ${vbox_to_tor_rule_base="3000"}
 
 ## internals
 
@@ -39,7 +41,7 @@ check_tor_config() {
   (test -w /usr/local/etc/tor/torrc &&
    test -w /usr/local/etc/tor &&
    touch /usr/local/etc/tor/torrc.tmp.${rnd} &&
-   rm -rf /usr/local/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>/dev/null
+   rm -f /usr/local/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>/dev/null
 }
 
 ensure_kmod_loaded() {
@@ -88,7 +90,7 @@ change_sysctl() {
 add_ipfw_rules() {
   local ifaces="$1"
   local net_pattern="$2"
-  local cmd=$ipfw_rule_base
+  local cmd=$vbox_to_tor_rule_base
   local fwcmd="/sbin/ipfw -q"
 
   for iface in $ifaces; do
@@ -130,6 +132,8 @@ write_tor_config_section() {
   # to always succeed. So we just overwrite that file in the
   # old fashion way. We add our signature to every line, so
   # that we can always delete these lines when we are stopped.
+  # See torproject ticket#15649 with the request for this
+  # functionality
 
   local conf="/usr/local/etc/tor/torrc"
   local conf_tmp_old="/usr/local/etc/tor/torrc.vbox-to-tor.old.tmp"
@@ -171,7 +175,7 @@ delete_tor_config_section() {
 
 delete_ipfw_rules() {
   local ifaces="$1"
-  local cmd=$ipfw_rule_base
+  local cmd=$vbox_to_tor_rule_base
   local fwcmd="/sbin/ipfw -q"
   for iface in $ifaces; do
     ${fwcmd} delete $(jot - $cmd $((cmd+9))) 2>/dev/null
