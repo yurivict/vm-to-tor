@@ -62,7 +62,7 @@ This setup allows you to run 3 different virtual machines connected to TOR (on t
 
 After this you need to choose "Bridged Adapter" as a networking adapter for VMs in VirtualBox Manager. You need to assign one of these tapN devices to the bridged interface of each VM you want to connect to TOR. As simple as that.
 
-## How vbox-to-tor works?
+## How does vbox-to-tor work?
 
 vbox-to-tor creates tunnel interfaces and sets them up for the use by the virtual machines, so that all network traffic of the VMs is tunneled to the host level network interface. It also adds appropriate firewall rules that send all network traffic originating in the VMs directly to TOR router running on the host. These firewall rules also prevent any leaks of traffic through the original unsecured network connection on the host.
 
@@ -82,6 +82,7 @@ vbox-to-tor works with virtually no overhead, and installs as two standard FreeB
 
 * For better experience with vbox-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
 * Stopping vbox-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but this isn't a very important problem.
+* Changing networking type to tapN while VM is running also causes VM crash. This is another bug in VirtualBox.
 * Programs requiring UDP will not work, because TOR currently doesn't support UDP. Only DNS UDP is supported.
 * vbox-to-tor writes torrc files directly due to the lack of the privileged auto-authentication feature in TorCtrl protocol. Normally TOR doesn't self-modify torrc, but if any other programs (ex. arm or vidalia) would modify TOR config, vbox-to-tor changes to torrc can be either lost or impossible to remove for vbox-to-tor (see TOR ticket#15649)
 
