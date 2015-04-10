@@ -104,12 +104,12 @@ add_ipfw_rules() {
     # DNS: allow DNS to go to TOR DNS port
     ${fwcmd} add $((cmd+1)) allow udp from ${vm_net} to ${vm_gw} 53 via $iface keep-state
 
-    # DHCP: sink DHCP to server on gateway (DHCP requests canhave both zero and non-zero source addresses)
+    # DHCP: sink DHCP to server on gateway (DHCP requests can have both zero and non-zero source addresses)
     ${fwcmd} add $((cmd+2)) fwd ${vm_gw} udp from ${vm_net} to 255.255.255.255 67 in via $iface
     ${fwcmd} add $((cmd+3)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
     ${fwcmd} add $((cmd+4)) allow udp from ${vm_gw} to any 68 out via $iface
 
-    # SSH: allow host to VM SSH for local administration (you can add any additional ports for HS)
+    # SSH: allow host-to-VM SSH for local administration
     ${fwcmd} add $((cmd+5)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
 
     # HS: you can add any additional host-to-VM TCP ports for TOR hidden services, or other purposes
@@ -198,11 +198,11 @@ vbox_to_tor_start() {
 vbox_to_tor_status() {
   for iface in $vbox_to_tor_ifaces; do
     if ! (ls /dev/ | grep $iface >/dev/null 2>/dev/null); then
-      echo "$name is not on"
+      echo "$name is not running"
       return 1
     fi
   done
-  echo "$name is on with interfaces '${vbox_to_tor_ifaces}'"
+  echo "$name is running with interfaces '${vbox_to_tor_ifaces}'"
 }
 
 vbox_to_tor_stop() {
