@@ -69,9 +69,9 @@ vbox-to-tor creates tunnel interfaces and sets them up for the use by the virtua
 
 ## Background
 
-Tor Project actively promotes the so-called "Tor Browser Bundle" (TBB). The security of TBB depends on the absence of bugs in the vast and complex codebase that firefox browser is built from. Many bugs have been found in the firefox code in the past, particularly some severe JavaScript bugs that allowed for some breaches of anonymity of TBB users in the past. There is also no guarantee that more bugs won't be found. That is why many TBB users believe that it is much safer to disable JavaScript altogether.
+Tor Project actively promotes the so-called "Tor Browser Bundle" (TBB). The security of TBB depends on the vast and complex codebase that firefox browser is built from being free of bugs. Many bugs have been found in the firefox code in the past, particularly some severe JavaScript bugs that allowed for some breaches of anonymity of TBB users in the past. There is also no guarantee that more bugs will not be found. That is why many TBB users believe that it is much safer to disable JavaScript altogether, and thet they should limit what websites they should visit.
 
-vbox-to-tor took very different approach, "security by isolation". It allows user to easily connect the OS of his/her choice (VM guest) to the TOR router that runs on the host. This guest OS is completely isolated from the host and other guests, and can only connect to the TOR network. Therefore, regardless of what bugs any particular program that runs in the guest might have, such bugs just can't reveal the real IP of the user because anything they do all goes only through the TOR connection through a very simple tunnel.
+vbox-to-tor took very different approach, "security by isolation". It allows user to easily connect the OS of his/her choice (VM guest) to the TOR router that runs on the host. This guest OS is completely isolated from the host and other guests, and can only connect to the TOR network. Therefore, regardless of what bugs any particular program that runs in the guest might have, such bugs just can't reveal the real IP of the user because anything they do always goes only through the TOR connection through a very simple tunnel.
 
 There is another product, Whonix (https://www.whonix.org), that also chose security-by-isolation approach. However, Whonix requires the second VM to act as a TOR router host.
 
@@ -83,6 +83,8 @@ vbox-to-tor works with virtually no overhead, and installs as two standard FreeB
 
 * For better experience with vbox-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
 * Stopping vbox-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but this isn't a very important problem.
+* Programs requiring UDP will not work, because TOR currently doesn't support UDP. Only DNS UDP is supported.
+* vbox-to-tor writes torrc files manually due to the lack of privileged auto-authentication feature in TorCtrl protocol. Normally TOR doesn't self modify torrc, but if any other programs (ex. arm or vidalia) would modify TOR config, vbox-to-tor changes to torrc can be either lost or impossible to remove for vbox-to-tor (see TOR ticket#15649)
 
 ## Ports
 
