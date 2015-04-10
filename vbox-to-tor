@@ -11,7 +11,7 @@
 # vbox_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: NO
 # vbox_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
 #                                       At least one interface is required.
-# vbox_to_tor_net_patern (str):	Set it to the network pattern. Default: "172.16"
+# vbox_to_tor_net_pattern (str):	Set it to the network pattern. Default: "172.16"
 #
 
 . /etc/rc.subr
@@ -29,7 +29,7 @@ load_rc_config ${name}
 
 : ${vbox_to_tor_enable="NO"}
 : ${vbox_to_tor_ifaces="tap0"}
-: ${vbox_to_tor_net_patern="172.16"}
+: ${vbox_to_tor_net_pattern="172.16"}
 
 ## internals
 
@@ -53,7 +53,7 @@ create_tap() {
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
     if !(ifconfig $iface create && \
          ifconfig $iface up && \
-         ifconfig $iface inet "${vbox_to_tor_net_patern}.${vm_id}.1/24" && \
+         ifconfig $iface inet "${vbox_to_tor_net_pattern}.${vm_id}.1/24" && \
          chown root:vboxusers /dev/$iface && \
          chmod 0660 /dev/$iface) >/dev/null 2>/dev/null; then
       echo "Failed to create interface $iface" >&2
@@ -186,7 +186,7 @@ vbox_to_tor_start() {
   ensure_kmod_loaded "if_tap" &&
   ensure_kmod_loaded "ipfw" &&
   create_tap &&
-  add_ipfw_rules "$vbox_to_tor_ifaces" "$vbox_to_tor_net_patern" &&
+  add_ipfw_rules "$vbox_to_tor_ifaces" "$vbox_to_tor_net_pattern" &&
   change_sysctl &&
   write_tor_config_section
 }
