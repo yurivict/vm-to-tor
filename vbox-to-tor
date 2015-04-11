@@ -198,15 +198,29 @@ vbox_to_tor_start() {
 vbox_to_tor_status() {
   local cntOk=0
   local cntNo=0
+  local msgOk msgNo strOpened
   for iface in $vbox_to_tor_ifaces; do
     if ! (ls /dev/ | grep $iface >/dev/null 2>/dev/null); then
       cntNo=$((cntNo+1))
+      if [ $cntNo -gt 1 ]; then
+        msgNo="${msgNo}"
+      fi
+      msgNo="${msgNo}${iface}"
     else
       cntOk=$((cntOk+1))
+      strOpened=$(ifconfig ${iface} | grep -i open | tr '[:upper:]' '[:lower:]' | sed -e 's/^[[:space:]]*//g')
+      if [ $cntOk -gt 1 ]; then
+        msgOk="${msgOk} "
+      fi
+      if [ -n "$strOpened" ]; then
+        msgOk="${msgOk}${iface}(${strOpened})"
+      else
+        msgOk="${msgOk}${iface}"
+      fi
     fi
   done
   if [ $cntNo = 0 ]; then
-    echo "$name is running with interfaces '${vbox_to_tor_ifaces}'"
+    echo "$name is running with interfaces '${msgOk}'"
   elif [ $cntOk = 0 ]; then
     echo "$name is not running ($vbox_to_tor_ifaces)"
   else
