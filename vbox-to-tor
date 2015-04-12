@@ -218,6 +218,13 @@ delete_ipfw_rules() {
   done
 }
 
+guess_process_name() {
+  local proc_vbox=$(procstat -c $1 | tail -1 | grep "VirtualBox")
+  if [ -n "${proc_vbox}" ]; then
+    echo $(echo ${proc_vbox} | sed -E "s/.*--comment (([^ ]| [^-]| -[^-])*) --.*$/\1/g")
+  fi
+}
+
 ## interface for service manager
 
 vbox_to_tor_start() {
@@ -243,12 +250,22 @@ vbox_to_tor_status() {
       msgNo="${msgNo}${iface}"
     else
       cntOk=$((cntOk+1))
+      local descr=""
+      # vm pid
       strOpenedPid=$(ifconfig ${iface} | grep -i open | sed -e 's/[a-zA-Z[:space:]]*//g')
+      if [ -n "${strOpenedPid}" ]; then
+        descr="vm-pid=${strOpenedPid}"
+        local processName=$(guess_process_name ${strOpenedPid})
+        if [ -n "${processName}" ]; then
+          descr="${descr} vm-name=${processName}"
+        fi
+      fi
+      # print iface status
       if [ $cntOk -gt 1 ]; then
         msgOk="${msgOk} "
       fi
-      if [ -n "$strOpenedPid" ]; then
-        msgOk="${msgOk}${iface}(vm-pid=${strOpenedPid})"
+      if [ -n "${descr}" ]; then
+        msgOk="${msgOk}${iface}(${descr})"
       else
         msgOk="${msgOk}${iface}"
       fi
