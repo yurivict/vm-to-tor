@@ -243,12 +243,12 @@ vbox_to_tor_status() {
       msgNo="${msgNo}${iface}"
     else
       cntOk=$((cntOk+1))
-      strOpened=$(ifconfig ${iface} | grep -i open | tr '[:upper:]' '[:lower:]' | sed -e 's/^[[:space:]]*//g')
+      strOpenedPid=$(ifconfig ${iface} | grep -i open | sed -e 's/[a-zA-Z[:space:]]*//g')
       if [ $cntOk -gt 1 ]; then
         msgOk="${msgOk} "
       fi
-      if [ -n "$strOpened" ]; then
-        msgOk="${msgOk}${iface}(${strOpened})"
+      if [ -n "$strOpenedPid" ]; then
+        msgOk="${msgOk}${iface}(vm-pid=${strOpenedPid})"
       else
         msgOk="${msgOk}${iface}"
       fi
