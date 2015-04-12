@@ -151,6 +151,12 @@ add_ipfw_rules() {
   done
 }
 
+warn_to_restart_tor_if_running() {
+  if [ -r /var/run/tor/tor.pid ] && procstat $(cat /var/run/tor/tor.pid) > /dev/null 2>/dev/null; then
+    echo "WARNING vbox-to-tor changed tor configuration, you need to restart tor: 'service tor restart'"
+  fi
+}
+
 write_tor_config_section() {
   # The "right" way of doing this is through Tor control port.
   # However, this requires authentication, and we don't have
@@ -178,6 +184,7 @@ write_tor_config_section() {
     mv $conf $conf_tmp_old &&
     mv $conf_tmp_new $conf &&
     rm -f $conf_tmp_old
+    warn_to_restart_tor_if_running
   else
     return 1
   fi
@@ -194,6 +201,7 @@ delete_tor_config_section() {
     mv $conf $conf_tmp_old &&
     mv $conf_tmp_new $conf &&
     rm -f $conf_tmp_old
+    warn_to_restart_tor_if_running
   else
     return 1
   fi
