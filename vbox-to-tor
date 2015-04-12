@@ -8,11 +8,12 @@
 # BEFORE: tor
 
 # Add the following lines to /etc/rc.conf to enable vbox_to_tor:
-# vbox_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: NO
+# vbox_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: "NO"
 # vbox_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
 #                                       At least one interface is required.
 # vbox_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
 # vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
+# vbox_to_tor_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
 #
 
 . /etc/rc.subr
@@ -32,8 +33,27 @@ load_rc_config ${name}
 : ${vbox_to_tor_ifaces="tap0"}
 : ${vbox_to_tor_net_pattern="172.16"}
 : ${vbox_to_tor_rule_base="3000"}
+: ${vbox_to_tor_ports=""}
 
 ## internals
+
+calc_rule_step() {
+  local port
+  local cnt=0
+  for port in $vbox_to_tor_ports; do
+    cnt=$((cnt+1))
+  done
+  # 7 base rules required per interface
+  cnt=$((cnt+7))
+  for step in 10 20 50 100 200 500 1000; do
+    if [ $cnt -le $step ]; then
+      echo ${step}
+      return
+    fi
+  done
+  echo "too many ports requested"
+  exit 1
+}
 
 check_tor_config() {
   # check we can really write /usr/local/etc/tor/torrc
@@ -91,6 +111,8 @@ add_ipfw_rules() {
   local ifaces="$1"
   local net_pattern="$2"
   local cmd=$vbox_to_tor_rule_base
+  local step=$(calc_rule_step)
+  local port
   local fwcmd="/sbin/ipfw -q"
 
   for iface in $ifaces; do
@@ -113,15 +135,19 @@ add_ipfw_rules() {
     ${fwcmd} add $((cmd+5)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
 
     # HS: you can add any additional host-to-VM TCP ports for TOR hidden services, or other purposes
-    #${fwcmd} add $((cmd+6)) allow tcp from ${vm_gw} to ${vm_net} 1234 out via $iface keep-state
+    local pidx=0
+    for port in $vbox_to_tor_ports; do
+      ${fwcmd} add $((cmd+6+pidx)) allow tcp from ${vm_gw} to ${vm_net} ${port} out via $iface keep-state
+      pidx=$((pidx+1))
+    done
 
     # DENY: no other communication is allowed on this interface
-    ${fwcmd} add $((cmd+8)) deny all from any to any via $iface
+    ${fwcmd} add $((cmd+step-1)) deny all from any to any via $iface
 
     # report
     echo "Added ipfw rules for VM ${iface} on ${vm_net} to connect to TOR"
     # move on
-    cmd=$((cmd+10))
+    cmd=$((cmd+step))
   done
 }
 
@@ -176,10 +202,11 @@ delete_tor_config_section() {
 delete_ipfw_rules() {
   local ifaces="$1"
   local cmd=$vbox_to_tor_rule_base
+  local step=$(calc_rule_step)
   local fwcmd="/sbin/ipfw -q"
   for iface in $ifaces; do
-    ${fwcmd} delete $(jot - $cmd $((cmd+9))) 2>/dev/null
-    cmd=$((cmd+10))
+    ${fwcmd} delete $(jot - $cmd $((cmd+step-1))) 2>/dev/null
+    cmd=$((cmd+step))
   done
 }
 
