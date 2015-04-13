@@ -221,7 +221,7 @@ delete_ipfw_rules() {
 guess_process_name() {
   local proc_vbox=$(procstat -c $1 | tail -1 | grep "VirtualBox")
   if [ -n "${proc_vbox}" ]; then
-    echo $(echo ${proc_vbox} | sed -E "s/.*--comment (([^ ]| [^-]| -[^-])*) --.*$/\1/g")
+    echo $(echo ${proc_vbox} | sed -E "s/.*--comment (([^ ]| [^-]| -[^-])*)( --.*|[[:space:]]*)$/\1/g")
   fi
 }
 
