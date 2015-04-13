@@ -10,10 +10,14 @@
 # Add the following lines to /etc/rc.conf to enable vbox_to_tor:
 # vbox_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: "NO"
 # vbox_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
-#                                       At least one interface is required.
+#                                 At least one interface is required.
 # vbox_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
 # vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
 # vbox_to_tor_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
+# vbox_to_tor_use_base (bool):	Set it to "YES" to use base tor. Default: "NO"
+#                                 By default individual tor instance is launched per interface.
+#                                 Choosing "YES" requires less resources, but is marginally less secure.
+#                                 It requires tor service to run, but it should start after vbox-to-tor.
 #
 
 . /etc/rc.subr
@@ -26,6 +30,8 @@ status_cmd="vbox_to_tor_status"
 
 # signature that will be placed into torrc to later be able to find our lines
 torrc_signature="VBoxToTOR"
+# where all tors data dirs are
+tor_dir=/var/tmp/vbox-to-tor
 
 load_rc_config ${name}
 
@@ -34,6 +40,7 @@ load_rc_config ${name}
 : ${vbox_to_tor_net_pattern="172.16"}
 : ${vbox_to_tor_rule_base="3000"}
 : ${vbox_to_tor_ports=""}
+: ${vbox_to_tor_use_base="NO"}
 
 ## internals
 
@@ -151,6 +158,54 @@ add_ipfw_rules() {
   done
 }
 
+start_tor_instance() {
+  local dir="$1"
+  local gw="$2"
+  # create dirs
+  (mkdir -p "${dir}/data" && chown -R _tor:_tor "${dir}") || ! echo "$name: Failed to create ${dir}/data" || return 1
+  # prepare comamnd line arguments
+  local cmd="/usr/local/bin/tor --ignore-missing-torrc -f /no/file"
+  cmd="${cmd} --PidFile ${dir}/tor.pid"
+  cmd="${cmd} --RunAsDaemon 1"
+  cmd="${cmd} --DataDirectory ${dir}/data"
+  cmd="${cmd} --+Log \"notice file ${dir}/tor.log\""
+  cmd="${cmd} --DNSPort 53"
+  cmd="${cmd} --DNSListenAddress ${gw}"
+  cmd="${cmd} --TransPort 9030"
+  cmd="${cmd} --TransListenAddress ${gw}"
+  cmd="${cmd} --SocksPort 0"
+  echo "CMD: ${cmd}" >> ${dir}/cmd.log
+  echo "----- OUTPUT -----" >> ${dir}/cmd.log
+  # run it
+  su -m _tor -c "${cmd}" >> ${dir}/cmd.log 2>&1
+  # check if it is running
+  [ -s ${dir}/tor.pid -a "$(procstat $(cat ${dir}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${dir}/tor.pid)" ]
+}
+
+start_tor_instances() {
+  for iface in $vbox_to_tor_ifaces; do
+    local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
+    local vm_gw="${vbox_to_tor_net_pattern}.${vm_id}.1"
+
+    start_tor_instance "${tor_dir}/$iface" "${vm_gw}" || ! echo "$name: Failed to start tor instance $iface" || return 1
+  done
+}
+
+stop_tor_instances() {
+  for iface in $vbox_to_tor_ifaces; do
+    ([ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid)) || ! echo "$name: failed to stop VM $iface" || stop_tor_instances_silent || return 1
+  done
+  rm -rf ${tor_dir}
+}
+
+stop_tor_instances_silent() {
+  for iface in $vbox_to_tor_ifaces; do
+    [ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid) >/dev/null 2>/dev/null
+  done
+  rm -rf ${tor_dir}
+  return 0
+}
+
 warn_to_restart_tor_if_running() {
   if [ -r /var/run/tor/tor.pid ] && procstat $(cat /var/run/tor/tor.pid) > /dev/null 2>/dev/null; then
     echo "WARNING vbox-to-tor changed tor configuration, you need to restart tor: 'service tor restart'"
@@ -234,7 +289,10 @@ vbox_to_tor_start() {
   create_tap &&
   add_ipfw_rules "$vbox_to_tor_ifaces" "$vbox_to_tor_net_pattern" &&
   change_sysctl &&
-  write_tor_config_section
+  (
+    ([ ${vbox_to_tor_use_base} = "YES" ] && write_tor_config_section) ||
+    ([ ${vbox_to_tor_use_base} = "NO" ] && start_tor_instances)
+  )
 }
 
 vbox_to_tor_status() {
@@ -260,6 +318,13 @@ vbox_to_tor_status() {
           descr="${descr} vm-name=${processName}"
         fi
       fi
+      # tor pid
+      if [ ${vbox_to_tor_use_base} = "NO" ]; then
+        if [ -n "${descr}" ]; then
+          descr="${descr} "
+        fi
+        descr="${descr}tor-pid=$(cat ${tor_dir}/${iface}/tor.pid)"
+      fi
       # print iface status
       if [ $cntOk -gt 1 ]; then
         msgOk="${msgOk} "
@@ -284,7 +349,10 @@ vbox_to_tor_status() {
 vbox_to_tor_stop() {
   delete_ipfw_rules "$vbox_to_tor_ifaces" &&
   destroy_tap &&
-  delete_tor_config_section
+  (
+    ([ ${vbox_to_tor_use_base} = "YES" ] && delete_tor_config_section) ||
+    ([ ${vbox_to_tor_use_base} = "NO" ] && stop_tor_instances)
+  )
 }
 
 command="/usr/bin/true"
