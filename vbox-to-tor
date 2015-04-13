@@ -33,6 +33,7 @@ torrc_signature="VBoxToTOR"
 # where all tors data dirs are
 tor_dir=/var/tmp/vbox-to-tor
 tor_conf=/usr/local/etc/tor/torrc
+NL=$'\n'
 
 load_rc_config ${name}
 
@@ -165,7 +166,8 @@ start_tor_instance() {
   # create dirs
   (mkdir -p "${dir}/data" && chown -R _tor:_tor "${dir}") || ! echo "$name: Failed to create ${dir}/data" || return 1
   # prepare comamnd line arguments
-  local cmd="/usr/local/bin/tor --ignore-missing-torrc -f /no/file"
+  local cmd="/usr/local/bin/tor"
+  cmd="${cmd} --ignore-missing-torrc -f /no/file"
   cmd="${cmd} --PidFile ${dir}/tor.pid"
   cmd="${cmd} --RunAsDaemon 1"
   cmd="${cmd} --DataDirectory ${dir}/data"
@@ -184,11 +186,12 @@ start_tor_instance() {
 }
 
 start_tor_instances() {
+  (rm -rf ${tor_dir}; mkdir -p "${tor_dir}" && chown _tor:_tor "${tor_dir}") || ! echo "$name: Failed to create ${tor_dir}" || return 1
   for iface in $vbox_to_tor_ifaces; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
     local vm_gw="${vbox_to_tor_net_pattern}.${vm_id}.1"
 
-    start_tor_instance "${tor_dir}/$iface" "${vm_gw}" || ! echo "$name: Failed to start tor instance $iface" || return 1
+    start_tor_instance "${tor_dir}/$iface" "${vm_gw}" || ! echo "$name: Failed to start tor instance $iface" || stop_tor_instances_silent || return 1
   done
 }
 
@@ -203,7 +206,7 @@ stop_tor_instances_silent() {
   for iface in $vbox_to_tor_ifaces; do
     [ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid) >/dev/null 2>/dev/null
   done
-  rm -rf ${tor_dir}
+  # emergency stop, something went wrong, so keep logs
   return 0
 }
 
@@ -279,6 +282,15 @@ guess_process_name() {
   fi
 }
 
+count_tunnels() {
+  local cnt=0
+  local iface
+  for iface in $vbox_to_tor_ifaces; do
+    cnt=$((cnt+1))
+  done
+  echo $cnt
+}
+
 ## interface for service manager
 
 vbox_to_tor_start() {
@@ -298,6 +310,18 @@ vbox_to_tor_status() {
   local cntOk=0
   local cntNo=0
   local msgOk msgNo strOpened
+  local ntunnels=$(count_tunnels)
+  if [ $ntunnels -gt 1 ]; then
+    local xnl="${NL}"
+    local xbu=" * "
+    local xlt=": "
+    local xrt=""
+  else
+    local xnl=" "
+    local xbu=""
+    local xlt="("
+    local xrt=")"
+  fi
   for iface in $vbox_to_tor_ifaces; do
     if ! (ls /dev/ | grep $iface >/dev/null 2>/dev/null); then
       cntNo=$((cntNo+1))
@@ -326,21 +350,22 @@ vbox_to_tor_status() {
       fi
       # print iface status
       if [ $cntOk -gt 1 ]; then
-        msgOk="${msgOk} "
+        msgOk="${msgOk}${xnl}"
       fi
       if [ -n "${descr}" ]; then
-        msgOk="${msgOk}${iface}(${descr})"
+        msgOk="${msgOk}${xbu}${iface}${xlt}${descr}${xrt}"
       else
-        msgOk="${msgOk}${iface}"
+        msgOk="${msgOk}${xbu}${iface}"
       fi
     fi
   done
   if [ $cntNo = 0 ]; then
-    echo "$name is running with interfaces '${msgOk}'"
+    echo "$name is running with tunnels:${xnl}${msgOk}"
   elif [ $cntOk = 0 ]; then
     echo "$name is not running ($vbox_to_tor_ifaces)"
+    return 1
   else
-    echo "$name isn't properly setup: $cntNo of $((cntOk+cntNo)) interfaces doesn't exist ($vbox_to_tor_ifaces)"
+    echo "$name isn't properly setup: $cntNo of $((cntOk+cntNo)) tunnels doesn't exist ($vbox_to_tor_ifaces)"
     return 1
   fi
 }
