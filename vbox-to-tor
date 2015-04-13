@@ -14,7 +14,7 @@
 # vbox_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
 # vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
 # vbox_to_tor_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
-# vbox_to_tor_use_base (bool):	Set it to "YES" to use base tor. Default: "NO"
+# vbox_to_tor_use_base (bool):	Set it to "YES" to use central tor daemon on host. Default: "NO"
 #                                 By default individual tor instance is launched per interface.
 #                                 Choosing "YES" requires less resources, but is marginally less secure.
 #                                 It requires tor service to run, but it should start after vbox-to-tor.
@@ -32,6 +32,7 @@ status_cmd="vbox_to_tor_status"
 torrc_signature="VBoxToTOR"
 # where all tors data dirs are
 tor_dir=/var/tmp/vbox-to-tor
+tor_conf=/usr/local/etc/tor/torrc
 
 load_rc_config ${name}
 
@@ -222,12 +223,11 @@ write_tor_config_section() {
   # See torproject ticket#15649 with the request for this
   # functionality
 
-  local conf="/usr/local/etc/tor/torrc"
-  local conf_tmp_old="/usr/local/etc/tor/torrc.vbox-to-tor.old.tmp"
-  local conf_tmp_new="/usr/local/etc/tor/torrc.vbox-to-tor.new.tmp"
+  local conf_tmp_old="${tor_conf}.vbox-to-tor.old.tmp"
+  local conf_tmp_new="${tor_conf}.vbox-to-tor.new.tmp"
 
   rm -f $conf_tmp_new $conf_tmp_old &&
-  (cat $conf &&
+  (cat $tor_conf &&
    echo "# [$torrc_signature] BEGIN vbox-to-tor section" &&
    (for iface in $vbox_to_tor_ifaces; do
       local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
@@ -236,8 +236,8 @@ write_tor_config_section() {
     done) &&
    echo "# [$torrc_signature] END vbox-to-tor section") > $conf_tmp_new
   if [ $? = 0 -a -f $conf_tmp_new ]; then
-    mv $conf $conf_tmp_old &&
-    mv $conf_tmp_new $conf &&
+    mv $tor_conf $conf_tmp_old &&
+    mv $conf_tmp_new $tor_conf &&
     rm -f $conf_tmp_old
     warn_to_restart_tor_if_running
   else
@@ -246,15 +246,14 @@ write_tor_config_section() {
 }
 
 delete_tor_config_section() {
-  local conf="/usr/local/etc/tor/torrc"
-  local conf_tmp_old="/usr/local/etc/tor/torrc.vbox-to-tor.old.tmp"
-  local conf_tmp_new="/usr/local/etc/tor/torrc.vbox-to-tor.new.tmp"
+  local conf_tmp_old="${tor_conf}.vbox-to-tor.old.tmp"
+  local conf_tmp_new="${tor_conf}.vbox-to-tor.new.tmp"
 
   rm -f $conf_tmp_new $conf_tmp_old &&
-  (cat $conf | grep -v $torrc_signature) > $conf_tmp_new
+  (cat $tor_conf | grep -v $torrc_signature) > $conf_tmp_new
   if [ $? = 0 -a -f $conf_tmp_new ]; then
-    mv $conf $conf_tmp_old &&
-    mv $conf_tmp_new $conf &&
+    mv $tor_conf $conf_tmp_old &&
+    mv $conf_tmp_new $tor_conf &&
     rm -f $conf_tmp_old
     warn_to_restart_tor_if_running
   else
