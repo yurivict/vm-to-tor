@@ -14,6 +14,7 @@
 # vbox_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
 # vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
 # vbox_to_tor_extra_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
+# vbox_to_tor_control_socket (bool):	Set it to "YES" to allow host administration using ControlSocket. Default: "NO"
 # vbox_to_tor_use_base (bool):	Set it to "YES" to use central tor daemon on host. Default: "NO"
 #                                 By default individual tor instance is launched per interface.
 #                                 Choosing "YES" requires less resources, but is marginally less secure.
@@ -47,10 +48,16 @@ load_rc_config ${name}
 : ${vbox_to_tor_net_pattern="172.16"}
 : ${vbox_to_tor_rule_base="3000"}
 : ${vbox_to_tor_extra_ports=""}
+: ${vbox_to_tor_control_socket="NO"}
 : ${vbox_to_tor_use_base="NO"}
 : ${vbox_to_tor_hs=""}
 
 ## internals
+
+tm() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')]"
+  Apr 14 16:24:28.000
+}
 
 unique_port_set() {
   echo $vbox_to_tor_extra_ports $vbox_to_tor_hs_all_ports | tr " ${TAB}" '\n' | sort | uniq
@@ -222,7 +229,8 @@ start_tor_instance() {
   local gw="$3"
   local cl="$4"
   # create dirs
-  (mkdir -p "${dir}/data" && chown -R _tor:_tor "${dir}") || ! echo "${name}: Failed to create ${dir}/data" || return 1
+  (mkdir -p "${dir}/data" && chown -R _tor:_tor "${dir}" && chmod -R 0700 "${dir}") ||
+    ! echo "${name}: Failed to create ${dir}/data" || return 1
   # prepare comamnd line arguments
   local cmd="/usr/local/bin/tor"
   cmd="${cmd} --ignore-missing-torrc -f /no/file"
@@ -235,6 +243,9 @@ start_tor_instance() {
   cmd="${cmd} --TransPort 9030"
   cmd="${cmd} --TransListenAddress ${gw}"
   cmd="${cmd} --SocksPort 0"
+  if [ "${vbox_to_tor_control_socket}" = "YES" ]; then
+    cmd="${cmd} --ControlSocket ${dir}/ctrl"
+  fi
   # enable hidden services resolution
   cmd="${cmd} --VirtualAddrNetworkIPv4 10.192.0.0/10"
   cmd="${cmd} --AutomapHostsOnResolve 1"
@@ -257,17 +268,21 @@ start_tor_instance() {
     esac
     [ $hidx -lt 2 ] && hidx=$((hidx+1)) || hidx=0
   done
-  #
+  # log
+  touch ${dir}/cmd.log && chown _tor:_tor ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
+  echo "$(tm) ----- Running VM for tunnel $iface -----" >> ${dir}/cmd.log
   echo "CMD: ${cmd}" >> ${dir}/cmd.log
-  echo "----- OUTPUT -----" >> ${dir}/cmd.log
+  echo "$(tm) ----- BEGIN OUTPUT -----" >> ${dir}/cmd.log
   # run it
-  su -m _tor -c "${cmd}" >> ${dir}/cmd.log 2>&1
+  su -m _tor -c "umask 0077; ${cmd}" >> ${dir}/cmd.log 2>&1
+  echo "$(tm) ----- END OUTPUT -----" >> ${dir}/cmd.log
   # check if it is running
   [ -s ${dir}/tor.pid -a "$(procstat $(cat ${dir}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${dir}/tor.pid)" ]
 }
 
 start_tor_instances() {
-  (rm -rf ${tor_dir}; mkdir -p "${tor_dir}" && chown _tor:_tor "${tor_dir}") || ! echo "${name}: Failed to create ${tor_dir}" || return 1
+  (rm -rf ${tor_dir}; mkdir -p "${tor_dir}" && chown _tor:_tor "${tor_dir}" && chmod 0700 "${tor_dir}") ||
+    ! echo "${name}: Failed to create ${tor_dir}" || return 1
   for iface in ${vbox_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
     local vm_gw="${vbox_to_tor_net_pattern}.${vm_id}.1"
