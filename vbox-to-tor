@@ -20,7 +20,8 @@
 #                                 It requires tor service to run, but it should start after vbox-to-tor.
 # vbox_to_tor_hs (str):		Set it to the list of hidden services to route to VMs. Default: ""
 #                                 List is 'newline' or '|' separarated.
-#                                 Every element represents the hidden service in the format: tapN /dir/to/hs/ port
+#                                 Every element represents the hidden service in the format:
+#                                   tapN /dir/to/hs/ oport iport
 #
 
 . /etc/rc.subr
