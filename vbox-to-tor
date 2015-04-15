@@ -275,12 +275,12 @@ start_tor_instance() {
   done
   # log
   touch ${dir}/cmd.log && chown _tor:_tor ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
-  echo "$(tm) ----- Running VM for tunnel $iface -----" >> ${dir}/cmd.log
+  echo "$(tm) ----- Running VM (tunnel $iface) -----" >> ${dir}/cmd.log
   echo "CMD: ${cmd}" >> ${dir}/cmd.log
-  echo "$(tm) ----- BEGIN OUTPUT -----" >> ${dir}/cmd.log
+  echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   # run it
   su -m _tor -c "umask 0077; ${cmd}" >> ${dir}/cmd.log 2>&1
-  echo "$(tm) ----- END OUTPUT -----" >> ${dir}/cmd.log
+  echo "$(tm) ----- END OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   # check if it is running
   [ -s ${dir}/tor.pid -a "$(procstat $(cat ${dir}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${dir}/tor.pid)" ]
 }
