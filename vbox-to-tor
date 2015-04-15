@@ -26,6 +26,7 @@
 #                                   tapN /dir/to/hs/ oport iport
 # vbox_to_tor_user (str):	Set it to the user name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
 # vbox_to_tor_group (str):	Set it to the group name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
+# vbox_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
 #
 
 . /etc/rc.subr
@@ -58,6 +59,7 @@ load_rc_config ${name}
 : ${vbox_to_tor_hs=""}
 : ${vbox_to_tor_user="_tor"}
 : ${vbox_to_tor_group="_tor"}
+: ${vbox_to_tor_show_colors="YES"}
 
 ## internals
 
@@ -403,6 +405,7 @@ count_tunnels() {
 
 print_hs_for_iface() {
   local iface="$1"
+  local do_colors="$2"
   local hidx=0
   local hs_fld hs_dir hs_oport hs_iport
   local cnt=0
@@ -422,9 +425,9 @@ print_hs_for_iface() {
         fi
         local hs_name
         if [ -r "${hs_dir}/hostname" ]; then
-          echo -n "      * hs: $(cat ${hs_dir}/hostname) (${hs_dir}) ${hs_oport} -> ${hs_iport}"
+          echo -n "      * hs: $(color_hs_name $(cat ${hs_dir}/hostname) ${do_colors}) (${hs_dir}) ${hs_oport} -> ${hs_iport}"
         else
-          echo -n "      * hs: ${hs_dir} ${hs_oport} -> ${hs_iport}"
+          echo -n "      * hs: $(color_hs_name ${hs_dir} ${do_colors}) ${hs_oport} -> ${hs_iport}"
         fi
         cnt=$((cnt+1))
         ;;
@@ -433,7 +436,55 @@ print_hs_for_iface() {
   done
 }
 
-## interface for service manager
+## internals: colors
+
+RCol='\e[0m'    # Text Reset
+
+# Regular           Bold                Underline           High Intensity      BoldHigh Intens     Background          High Intensity Backgrounds
+Bla='\e[0;30m';     BBla='\e[1;30m';    UBla='\e[4;30m';    IBla='\e[0;90m';    BIBla='\e[1;90m';   On_Bla='\e[40m';    On_IBla='\e[0;100m';
+Red='\e[0;31m';     BRed='\e[1;31m';    URed='\e[4;31m';    IRed='\e[0;91m';    BIRed='\e[1;91m';   On_Red='\e[41m';    On_IRed='\e[0;101m';
+Gre='\e[0;32m';     BGre='\e[1;32m';    UGre='\e[4;32m';    IGre='\e[0;92m';    BIGre='\e[1;92m';   On_Gre='\e[42m';    On_IGre='\e[0;102m';
+Yel='\e[0;33m';     BYel='\e[1;33m';    UYel='\e[4;33m';    IYel='\e[0;93m';    BIYel='\e[1;93m';   On_Yel='\e[43m';    On_IYel='\e[0;103m';
+Blu='\e[0;34m';     BBlu='\e[1;34m';    UBlu='\e[4;34m';    IBlu='\e[0;94m';    BIBlu='\e[1;94m';   On_Blu='\e[44m';    On_IBlu='\e[0;104m';
+Pur='\e[0;35m';     BPur='\e[1;35m';    UPur='\e[4;35m';    IPur='\e[0;95m';    BIPur='\e[1;95m';   On_Pur='\e[45m';    On_IPur='\e[0;105m';
+Cya='\e[0;36m';     BCya='\e[1;36m';    UCya='\e[4;36m';    ICya='\e[0;96m';    BICya='\e[1;96m';   On_Cya='\e[46m';    On_ICya='\e[0;106m';
+Whi='\e[0;37m';     BWhi='\e[1;37m';    UWhi='\e[4;37m';    IWhi='\e[0;97m';    BIWhi='\e[1;97m';   On_Whi='\e[47m';    On_IWhi='\e[0;107m';
+
+color_os_name() {
+  local os_name="$1"
+  local do_colors="$2"
+  if [ ${vbox_to_tor_show_colors} = "YES" -a ${do_colors} = 1 ]; then
+    if expr "${os_name}" : "FreeBSD" > /dev/null; then
+      echo -e "${Gre}${os_name}${RCol}"
+    elif expr "${os_name}" : "Arch" > /dev/null; then
+      echo "${Cya}${os_name}${RCol}"
+    elif expr "${os_name}" : "Windows" > /dev/null; then
+      echo -e "${Pur}${os_name}${RCol}"
+    elif expr "${os_name}" : "Mint" > /dev/null; then
+      echo -e "${Gre}${os_name}${RCol}"
+    elif expr "${os_name}" : "Ubuntu" > /dev/null; then
+      echo -e "${x}${os_name}${RCol}"
+    elif expr "${os_name}" : "Fedora" > /dev/null; then
+      echo -e "${IBlu}${os_name}${RCol}"
+    else
+      echo -e "${UBla}${os_name}${RCol}"
+    fi
+  else
+    echo "${os_name}"
+  fi
+}
+
+color_hs_name() {
+  local hs_name="$1"
+  local do_colors="$2"
+  if [ ${vbox_to_tor_show_colors} = "YES" -a ${do_colors} = 1 ]; then
+    echo -e "${URed}${hs_name}${RCol}"
+  else
+    echo "${hs_name}"
+  fi
+}
+
+## interface: for service manager
 
 vbox_to_tor_start() {
   parse_hs || return 1
@@ -455,6 +506,10 @@ vbox_to_tor_status() {
   local cntNo=0
   local msgOk msgNo strOpened
   local ntunnels=$(count_tunnels)
+  local do_colors=0
+  if [ -t 1 ]; then
+    do_colors=1
+  fi
   if [ $ntunnels -gt 1 ]; then
     local xnl="${NL}"
     local xbu=" * "
@@ -480,7 +535,7 @@ vbox_to_tor_status() {
       strOpenedPid=$(ifconfig ${iface} | grep -i open | sed -e 's/[a-zA-Z[:space:]]*//g')
       if [ -n "${strOpenedPid}" ]; then
         descr="vm-pid=${strOpenedPid}"
-        local processName=$(guess_process_name ${strOpenedPid})
+        local processName=$(color_os_name "$(guess_process_name ${strOpenedPid})" ${do_colors})
         if [ -n "${processName}" ]; then
           descr="${descr} vm-name=${processName}"
         fi
@@ -501,7 +556,7 @@ vbox_to_tor_status() {
       else
         msgOk="${msgOk}${xbu}${iface}"
       fi
-      local hs=$(print_hs_for_iface ${iface})
+      local hs=$(print_hs_for_iface ${iface} ${do_colors})
       if [ -n "${hs}" ]; then
         msgOk="${msgOk}${NL}${hs}"
       fi
