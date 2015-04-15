@@ -67,6 +67,12 @@ tm() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')]"
 }
 
+is_user_authorized() {
+  if [ $(id -u) != 0 -a $(id -un) != ${vbox_to_tor_user} ]; then
+    return 1
+  fi
+}
+
 unique_port_set() {
   echo $vbox_to_tor_extra_ports $vbox_to_tor_hs_all_ports | tr " ${TAB}" '\n' | sort | uniq
 }
@@ -289,7 +295,8 @@ start_tor_instance() {
   su -m ${vbox_to_tor_user} -c "umask 0077; ${cmd}" >> ${dir}/cmd.log 2>&1
   echo "$(tm) ----- END OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   # check if it is running
-  [ -s ${dir}/tor.pid -a "$(procstat $(cat ${dir}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${dir}/tor.pid)" ]
+  [ -r ${dir}/tor.pid -a -s ${dir}/tor.pid -a \
+    "$(procstat $(cat ${dir}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${dir}/tor.pid)" ]
 }
 
 start_tor_instances() {
@@ -487,7 +494,8 @@ color_hs_name() {
 ## interface: for service manager
 
 vbox_to_tor_start() {
-  parse_hs || return 1
+  is_user_authorized || ! echo "Only root and ${vbox_to_tor_user} can start $name" >&2 || return 1
+  parse_hs &&
   check_tor_config &&
   ensure_kmod_loaded "if_tap" &&
   ensure_kmod_loaded "ipfw" &&
@@ -545,7 +553,7 @@ vbox_to_tor_status() {
         if [ -n "${descr}" ]; then
           descr="${descr} "
         fi
-        descr="${descr}tor-pid=$(cat ${tor_dir}/${iface}/tor.pid)"
+        descr="${descr}tor-pid=$(cat ${tor_dir}/${iface}/tor.pid 2>/dev/null || echo 'n/a')"
       fi
       # print iface status
       if [ $cntOk -gt 1 ]; then
@@ -574,7 +582,8 @@ vbox_to_tor_status() {
 }
 
 vbox_to_tor_stop() {
-  parse_hs || return 1
+  is_user_authorized || ! echo "Only root and ${vbox_to_tor_user} can stop $name" >&2 || return 1
+  parse_hs &&
   delete_ipfw_rules "${vbox_to_tor_ifaces}" &&
   destroy_tap &&
   (
