@@ -56,5 +56,6 @@ fi
 
 ## Run: automatically authenticate and accept user termonal input
 
-(echo -n "AUTHENTICATE " ; hexdump -e '32/1 "%02x""\n"' "${VM_DIR}/data/control_auth_cookie"; cat) | nc -U "${VM_DIR}/ctrl"
+(echo "(auto-login)" >&2; echo -n "AUTHENTICATE " ; hexdump -e '32/1 "%02x""\n"' "${VM_DIR}/data/control_auth_cookie"; cat) | \
+  nc -U "${VM_DIR}/ctrl"
 
