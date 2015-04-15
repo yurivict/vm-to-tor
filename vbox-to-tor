@@ -15,6 +15,7 @@
 # vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
 # vbox_to_tor_extra_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
 # vbox_to_tor_control_socket (bool):	Set it to "YES" to allow host administration using ControlSocket. Default: "NO"
+# vbox_to_tor_allow_cookie_auth (bool):	Set it to "YES" to allow cookie administration on ControlSocket. Default: "NO"
 # vbox_to_tor_use_base (bool):	Set it to "YES" to use central tor daemon on host. Default: "NO"
 #                                 By default individual tor instance is launched per interface.
 #                                 Choosing "YES" requires less resources, but is marginally less secure.
@@ -38,6 +39,7 @@ torrc_signature="VBoxToTOR"
 # where all tors data dirs are
 tor_dir=/var/tmp/vbox-to-tor
 tor_conf=/usr/local/etc/tor/torrc
+# consts
 NL=$'\n'
 TAB=$'\t'
 
@@ -49,6 +51,7 @@ load_rc_config ${name}
 : ${vbox_to_tor_rule_base="3000"}
 : ${vbox_to_tor_extra_ports=""}
 : ${vbox_to_tor_control_socket="NO"}
+: ${vbox_to_tor_allow_cookie_auth="NO"}
 : ${vbox_to_tor_use_base="NO"}
 : ${vbox_to_tor_hs=""}
 
@@ -56,7 +59,6 @@ load_rc_config ${name}
 
 tm() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')]"
-  Apr 14 16:24:28.000
 }
 
 unique_port_set() {
@@ -231,9 +233,11 @@ start_tor_instance() {
   # create dirs
   (mkdir -p "${dir}/data" && chown -R _tor:_tor "${dir}" && chmod -R 0700 "${dir}") ||
     ! echo "${name}: Failed to create ${dir}/data" || return 1
-  # prepare comamnd line arguments
+  # create blank torrc, because it isn't clear how to avoid using the default
+  touch ${dir}/torrc && chown _tor:_tor ${dir}/torrc && chmod 0600 ${dir}/torrc
+  # prepare command line arguments
   local cmd="/usr/local/bin/tor"
-  cmd="${cmd} --ignore-missing-torrc -f /no/file"
+  cmd="${cmd} -f ${dir}/torrc"
   cmd="${cmd} --PidFile ${dir}/tor.pid"
   cmd="${cmd} --RunAsDaemon 1"
   cmd="${cmd} --DataDirectory ${dir}/data"
@@ -245,6 +249,7 @@ start_tor_instance() {
   cmd="${cmd} --SocksPort 0"
   if [ "${vbox_to_tor_control_socket}" = "YES" ]; then
     cmd="${cmd} --ControlSocket ${dir}/ctrl"
+    cmd="${cmd} --CookieAuthentication 1"
   fi
   # enable hidden services resolution
   cmd="${cmd} --VirtualAddrNetworkIPv4 10.192.0.0/10"

@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
+
+###
+### This is "the telnet-like application to vbox-to-tor virtual machine
+### Expects the VM name, like tapN
+### It can only run when /etc/rc.conf has the following parameters set:
+### * vbox_to_tor_control_socket="YES"
+### * vbox_to_tor_allow_cookie_auth="YES"
+###
+
+## check usage and extract arguments
+
+if [ "$#" -ne 1 -o -z "$1" ]; then
+  echo "Usage:     ${0##*/} tapN"
+  exit 1
+fi
+
+VM=$1
+
+## check user
+
+if [ "$(id -u)" != "0" -a $(id -un) != "_tor" ]; then
+  echo "Only root and _tor users can run ${0##*/}" >&2
+  exit 1
+fi
+
+## directory base of the VM, check that machine exists
+
+VM_DIR=/var/tmp/vbox-to-tor/${VM}
+
+if [ ! -d "${VM_DIR}" ]; then
+  echo "Virtual machine $VM not found" 2>&1
+  exit 1
+fi
+
+## check if control socket and cookie actually exist
+
+if [ ! -S "${VM_DIR}/ctrl" ]; then
+  echo "No control socket found for virtual machine $VM" 2>&1
+  exit 1
+fi
+if [ ! -f "${VM_DIR}/data/control_auth_cookie" ]; then
+  echo "No control socket cookie found for virtual machine $VM" 2>&1
+  exit 1
+fi
+
+## Run: automatically authenticate and accept user termonal input
+
+(echo -n "AUTHENTICATE " ; hexdump -e '32/1 "%02x""\n"' "${VM_DIR}/data/control_auth_cookie"; cat) | nc -U "${VM_DIR}/ctrl"
