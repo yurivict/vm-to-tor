@@ -24,6 +24,8 @@
 #                                 List is 'newline' or '|' separarated.
 #                                 Every element represents the hidden service in the format:
 #                                   tapN /dir/to/hs/ oport iport
+# vbox_to_tor_user (str):	Set it to the user name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
+# vbox_to_tor_group (str):	Set it to the group name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
 #
 
 . /etc/rc.subr
@@ -54,6 +56,8 @@ load_rc_config ${name}
 : ${vbox_to_tor_allow_cookie_auth="NO"}
 : ${vbox_to_tor_use_base="NO"}
 : ${vbox_to_tor_hs=""}
+: ${vbox_to_tor_user="_tor"}
+: ${vbox_to_tor_group="_tor"}
 
 ## internals
 
@@ -231,10 +235,10 @@ start_tor_instance() {
   local gw="$3"
   local cl="$4"
   # create dirs
-  (mkdir -p "${dir}/data" && chown -R _tor:_tor "${dir}" && chmod -R 0700 "${dir}") ||
+  (mkdir -p "${dir}/data" && chown -R ${vbox_to_tor_user}:${vbox_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
     ! echo "${name}: Failed to create ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
-  touch ${dir}/torrc && chown _tor:_tor ${dir}/torrc && chmod 0600 ${dir}/torrc
+  touch ${dir}/torrc && chown ${vbox_to_tor_user}:${vbox_to_tor_group} ${dir}/torrc && chmod 0600 ${dir}/torrc
   # prepare command line arguments
   local cmd="/usr/local/bin/tor"
   cmd="${cmd} -f ${dir}/torrc"
@@ -274,19 +278,19 @@ start_tor_instance() {
     [ $hidx -lt 2 ] && hidx=$((hidx+1)) || hidx=0
   done
   # log
-  touch ${dir}/cmd.log && chown _tor:_tor ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
+  touch ${dir}/cmd.log && chown ${vbox_to_tor_user}:${vbox_to_tor_group} ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
   echo "$(tm) ----- Running VM (tunnel $iface) -----" >> ${dir}/cmd.log
   echo "CMD: ${cmd}" >> ${dir}/cmd.log
   echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   # run it
-  su -m _tor -c "umask 0077; ${cmd}" >> ${dir}/cmd.log 2>&1
+  su -m ${vbox_to_tor_user} -c "umask 0077; ${cmd}" >> ${dir}/cmd.log 2>&1
   echo "$(tm) ----- END OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   # check if it is running
   [ -s ${dir}/tor.pid -a "$(procstat $(cat ${dir}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${dir}/tor.pid)" ]
 }
 
 start_tor_instances() {
-  (rm -rf ${tor_dir}; mkdir -p "${tor_dir}" && chown _tor:_tor "${tor_dir}" && chmod 0700 "${tor_dir}") ||
+  (rm -rf ${tor_dir}; mkdir -p "${tor_dir}" && chown ${vbox_to_tor_user}:${vbox_to_tor_group} "${tor_dir}" && chmod 0700 "${tor_dir}") ||
     ! echo "${name}: Failed to create ${tor_dir}" || return 1
   for iface in ${vbox_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
