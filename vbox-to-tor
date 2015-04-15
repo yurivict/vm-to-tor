@@ -68,9 +68,11 @@ tm() {
 }
 
 is_user_authorized() {
-  if [ $(id -u) != 0 -a $(id -un) != ${vbox_to_tor_user} ]; then
-    return 1
-  fi
+  [ $(id -u) = 0 -o $(id -un) = ${vbox_to_tor_user} ] || return 1
+}
+
+is_tor_installed() {
+  [ -x /usr/local/bin/tor ] || return 1
 }
 
 unique_port_set() {
@@ -495,6 +497,7 @@ color_hs_name() {
 
 vbox_to_tor_start() {
   is_user_authorized || ! echo "Only root and ${vbox_to_tor_user} can start $name" >&2 || return 1
+  [ ${vbox_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo "Tor is not installed, $name can't start" || return 1
   parse_hs &&
   check_tor_config &&
   ensure_kmod_loaded "if_tap" &&
