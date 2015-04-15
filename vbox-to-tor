@@ -466,13 +466,13 @@ color_os_name() {
     if expr "${os_name}" : "FreeBSD" > /dev/null; then
       echo -e "${Gre}${os_name}${RCol}"
     elif expr "${os_name}" : "Arch" > /dev/null; then
-      echo "${Cya}${os_name}${RCol}"
+      echo -e "${Cya}${os_name}${RCol}"
     elif expr "${os_name}" : "Windows" > /dev/null; then
       echo -e "${Pur}${os_name}${RCol}"
     elif expr "${os_name}" : "Mint" > /dev/null; then
       echo -e "${Gre}${os_name}${RCol}"
     elif expr "${os_name}" : "Ubuntu" > /dev/null; then
-      echo -e "${x}${os_name}${RCol}"
+      echo -e "${IRed}${os_name}${RCol}"
     elif expr "${os_name}" : "Fedora" > /dev/null; then
       echo -e "${IBlu}${os_name}${RCol}"
     else
