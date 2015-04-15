@@ -70,7 +70,8 @@ unique_port_set() {
 }
 
 unique_port_set_for_iface() {
-  eval "echo \$vbox_to_tor_extra_ports \$vbox_to_tor_hs_${1}_iports | tr \" \${TAB}\" '\\n' | sort | uniq"
+  # eliminate port 22 here, I would rather keep 22 as a separate line in ipfw section to keep it explicit
+  eval "echo \$vbox_to_tor_extra_ports \$vbox_to_tor_hs_${1}_iports | tr \" \${TAB}\" '\\n' | sort | uniq | grep -v ^22\$"
 }
 
 calc_rule_step() {
