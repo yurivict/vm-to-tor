@@ -46,6 +46,13 @@ if [ ! -f "${VM_DIR}/data/control_auth_cookie" ]; then
   exit 1
 fi
 
+## check if the VM runs
+
+if [ ! -s ${VM_DIR}/tor.pid -o "$(procstat $(cat ${VM_DIR}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" != "$(cat ${VM_DIR}/tor.pid)" ]; then
+  echo "Virtual machine $VM is not running" 2>&1
+  exit 1
+fi
+
 ## Run: automatically authenticate and accept user termonal input
 
 (echo -n "AUTHENTICATE " ; hexdump -e '32/1 "%02x""\n"' "${VM_DIR}/data/control_auth_cookie"; cat) | nc -U "${VM_DIR}/ctrl"
