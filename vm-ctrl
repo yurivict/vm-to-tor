@@ -3,10 +3,11 @@
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 
 ###
-### This is the telnet-like application to to control the vbox-to-tor
-### virtual machine
+### This is the telnet-like application to control the vbox-to-tor
+### virtual machine.
 ### It expects the virtual machine name in the form tapN.
-### It can only run when /etc/rc.conf has the following parameters set:
+### It can only run when vbox-to-tor was started with the following
+### parameters set in /etc/rc.conf:
 ### * vbox_to_tor_control_socket="YES"
 ### * vbox_to_tor_allow_cookie_auth="YES"
 ###
@@ -22,7 +23,7 @@ VM=$1
 
 ## check user
 
-if [ "$(id -u)" != "0" -a $(id -un) != "_tor" ]; then
+if [ $(id -u) != 0 -a $(id -un) != "_tor" ]; then
   echo "Only root and _tor users can run ${0##*/}" >&2
   exit 1
 fi
