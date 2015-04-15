@@ -415,7 +415,12 @@ print_hs_for_iface() {
         if [ $cnt -gt 0 ]; then
           echo ""
         fi
-        echo -n "      * hs: ${hs_dir} ${hs_oport} -> ${hs_iport}"
+        local hs_name
+        if [ -r "${hs_dir}/hostname" ]; then
+          echo -n "      * hs: $(cat ${hs_dir}/hostname) (${hs_dir}) ${hs_oport} -> ${hs_iport}"
+        else
+          echo -n "      * hs: ${hs_dir} ${hs_oport} -> ${hs_iport}"
+        fi
         cnt=$((cnt+1))
         ;;
     esac
