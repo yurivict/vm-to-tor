@@ -139,8 +139,8 @@ parse_hs() {
     fi
     # fill hs info into global vars
     eval "vbox_to_tor_hs_${iface}=\"\$vbox_to_tor_hs_${iface} ${dir} ${oport} ${iport}\""
-    eval "vbox_to_tor_hs_all_iports=\"\$vbox_to_tor_hs_all_iports ${iport}\""
     eval "vbox_to_tor_hs_${iface}_iports=\"\$vbox_to_tor_hs_${iface}_iports ${iport}\""
+    eval "vbox_to_tor_hs_all_iports=\"\$vbox_to_tor_hs_all_iports ${iport}\""
   done
 }
 
@@ -396,6 +396,33 @@ count_tunnels() {
   echo $cnt
 }
 
+print_hs_for_iface() {
+  local iface="$1"
+  local hidx=0
+  local hs_fld hs_dir hs_oport hs_iport
+  local cnt=0
+  for hs_fld in $(eval "echo \$vbox_to_tor_hs_${iface}"); do
+    case $hidx in
+      0)
+        hs_dir=${hs_fld}
+        ;;
+      1)
+        hs_oport=${hs_fld}
+        ;;
+      2)
+        hs_iport=${hs_fld}
+        # output: no newline in the end
+        if [ $cnt -gt 0 ]; then
+          echo ""
+        fi
+        echo -n "      * hs: ${hs_dir} ${hs_oport} -> ${hs_iport}"
+        cnt=$((cnt+1))
+        ;;
+    esac
+    [ $hidx -lt 2 ] && hidx=$((hidx+1)) || hidx=0
+  done
+}
+
 ## interface for service manager
 
 vbox_to_tor_start() {
@@ -463,6 +490,10 @@ vbox_to_tor_status() {
         msgOk="${msgOk}${xbu}${iface}${xlt}${descr}${xrt}"
       else
         msgOk="${msgOk}${xbu}${iface}"
+      fi
+      local hs=$(print_hs_for_iface ${iface})
+      if [ -n "${hs}" ]; then
+        msgOk="${msgOk}${NL}${hs}"
       fi
     fi
   done
