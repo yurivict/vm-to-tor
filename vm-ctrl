@@ -43,7 +43,7 @@ if [ ! -S "${VM_DIR}/ctrl" ]; then
   echo "No control socket found for virtual machine $VM" 2>&1
   exit 1
 fi
-if [ ! -f "${VM_DIR}/data/control_auth_cookie" ]; then
+if [ ! -f "${VM_DIR}/data/control_auth_cookie" -o $(ls -l "${VM_DIR}/data/control_auth_cookie" | awk '{ print $5}') != 32 ]; then
   echo "No control socket cookie found for virtual machine $VM" 2>&1
   exit 1
 fi
