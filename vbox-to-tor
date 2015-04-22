@@ -27,6 +27,8 @@
 # vbox_to_tor_user (str):	Set it to the user name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
 # vbox_to_tor_group (str):	Set it to the group name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
 # vbox_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
+# ## per-VM options
+# vbox_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
 #
 
 . /etc/rc.subr
@@ -270,6 +272,17 @@ start_tor_instance() {
     cmd="${cmd} --ControlSocket ${dir}/ctrl"
     cmd="${cmd} --CookieAuthentication 1"
   fi
+  # add per-VM tor options
+  IFS_OLD="$IFS"
+  IFS="${NL}"
+  local opts=$(eval "echo \"\$vbox_to_tor_${iface}_tor_options\"") opt
+  for opt in $opts; do
+    opt=$(echo $opt | sed -e 's/^ *//g;s/ *$//g')
+    if [ -n "${opt}" ]; then
+      cmd="${cmd} --${opt}"
+    fi
+  done
+  IFS="${IFS_OLD}"
   # enable hidden services resolution
   cmd="${cmd} --VirtualAddrNetworkIPv4 10.192.0.0/10"
   cmd="${cmd} --AutomapHostsOnResolve 1"
