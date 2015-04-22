@@ -274,7 +274,7 @@ start_tor_instance() {
   fi
   # add per-VM tor options
   IFS_OLD="$IFS"
-  IFS="${NL}"
+  local IFS="${NL}"
   local opts=$(eval "echo \"\$vbox_to_tor_${iface}_tor_options\"") opt
   for opt in $opts; do
     opt=$(echo $opt | sed -e 's/^ *//g;s/ *$//g')
