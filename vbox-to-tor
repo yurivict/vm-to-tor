@@ -71,6 +71,10 @@ is_user_authorized() {
   [ $(id -u) = 0 -o $(id -un) = ${vbox_to_tor_user} ] || return 1
 }
 
+is_user_authorized_with_msg() {
+  is_user_authorized || ! echo "Only root and ${vbox_to_tor_user} can $1" >&2 || return 1
+}
+
 is_tor_installed() {
   [ -x /usr/local/bin/tor ] || return 1
 }
@@ -331,6 +335,20 @@ stop_tor_instances_silent() {
   return 0
 }
 
+start_tor() {
+  (
+    ([ ${vbox_to_tor_use_base} = "YES" ] && write_tor_config_section) ||
+    ([ ${vbox_to_tor_use_base} = "NO" ] && start_tor_instances)
+  ) || return 1
+}
+
+stop_tor() {
+  (
+    ([ ${vbox_to_tor_use_base} = "YES" ] && delete_tor_config_section) ||
+    ([ ${vbox_to_tor_use_base} = "NO" ] && stop_tor_instances)
+  ) || return 1
+}
+
 warn_to_restart_tor_if_running() {
   if [ -r /var/run/tor/tor.pid ] && procstat $(cat /var/run/tor/tor.pid) > /dev/null 2>/dev/null; then
     echo "WARNING vbox-to-tor changed tor configuration, you need to restart tor: 'service tor restart'"
@@ -496,19 +514,20 @@ color_hs_name() {
 ## interface: for service manager
 
 vbox_to_tor_start() {
-  is_user_authorized || ! echo "Only root and ${vbox_to_tor_user} can start $name" >&2 || return 1
+  # checks
+  is_user_authorized_with_msg "start ${name}" || return 1
   [ ${vbox_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo "Tor is not installed, $name can't start" || return 1
-  parse_hs &&
-  check_tor_config &&
-  ensure_kmod_loaded "if_tap" &&
-  ensure_kmod_loaded "ipfw" &&
-  create_tap &&
-  add_ipfw_rules "${vbox_to_tor_ifaces}" "$vbox_to_tor_net_pattern" &&
-  change_sysctl &&
+  # start
   (
-    ([ ${vbox_to_tor_use_base} = "YES" ] && write_tor_config_section) ||
-    ([ ${vbox_to_tor_use_base} = "NO" ] && start_tor_instances)
-  )
+    parse_hs &&
+    check_tor_config &&
+    ensure_kmod_loaded "if_tap" &&
+    ensure_kmod_loaded "ipfw" &&
+    create_tap &&
+    add_ipfw_rules "${vbox_to_tor_ifaces}" "$vbox_to_tor_net_pattern" &&
+    change_sysctl &&
+    start_tor
+  ) || return 1
 }
 
 vbox_to_tor_status() {
@@ -585,14 +604,14 @@ vbox_to_tor_status() {
 }
 
 vbox_to_tor_stop() {
-  is_user_authorized || ! echo "Only root and ${vbox_to_tor_user} can stop $name" >&2 || return 1
-  parse_hs &&
-  delete_ipfw_rules "${vbox_to_tor_ifaces}" &&
-  destroy_tap &&
+  is_user_authorized_with_msg "stop $name" >&2 || return 1
+  echo "vbox_to_tor_stop keeps going"
   (
-    ([ ${vbox_to_tor_use_base} = "YES" ] && delete_tor_config_section) ||
-    ([ ${vbox_to_tor_use_base} = "NO" ] && stop_tor_instances)
-  )
+    parse_hs &&
+    delete_ipfw_rules "${vbox_to_tor_ifaces}" &&
+    destroy_tap &&
+    stop_tor
+  ) || return 1
 }
 
 command="/usr/bin/true"
