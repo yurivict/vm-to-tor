@@ -29,6 +29,7 @@
 # vbox_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
 # ## per-VM options
 # vbox_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
+# vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
 #
 
 . /etc/rc.subr
@@ -47,6 +48,7 @@ tor_conf=/usr/local/etc/tor/torrc
 # consts
 NL=$'\n'
 TAB=$'\t'
+nfs_ports="111 888 1110 2049 4045" # 111=portmap 888=mount? 1110=nfsd-status/nfsd-keepalive 2049=nfsd 4045=lockd
 
 load_rc_config ${name}
 
@@ -81,6 +83,10 @@ is_tor_installed() {
   [ -x /usr/local/bin/tor ] || return 1
 }
 
+get_per_vm_option() {
+  echo $(eval "echo \$vbox_to_tor_${1}_${2}")
+}
+
 unique_port_set() {
   echo $vbox_to_tor_extra_ports $vbox_to_tor_hs_all_ports | tr " ${TAB}" '\n' | sort | uniq
 }
@@ -90,14 +96,33 @@ unique_port_set_for_iface() {
   eval "echo \$vbox_to_tor_extra_ports \$vbox_to_tor_hs_${1}_iports | tr \" \${TAB}\" '\\n' | sort | uniq | grep -v ^22\$"
 }
 
-calc_rule_step() {
-  local port
-  local cnt=0
-  for port in $(unique_port_set); do
+calc_lst_size() {
+  local elt cnt=0
+  for elt in $1; do
     cnt=$((cnt+1))
   done
-  # 7 base rules required per interface
-  cnt=$((cnt+7))
+  echo $cnt
+}
+
+calc_max_nfs_hosts_needed() {
+  local max=0
+  for iface in ${vbox_to_tor_ifaces}; do
+    local cnt=$(calc_lst_size "$(get_per_vm_option ${iface} fw_allow_nfs)")
+    if [ $cnt -gt $max ]; then
+      max=$cnt
+    fi
+  done
+  echo $max
+}
+
+calc_rule_step() {
+  # 6 base rules required per interface
+  local cnt=6
+  # add ports requested by the user
+  cnt=$((cnt+$(calc_lst_size "$(unique_port_set)")))
+  # add NFS ports if requested: tcp and udp per port
+  cnt=$((cnt+2*$(calc_lst_size "$nfs_ports")*$(calc_max_nfs_hosts_needed)))
+  # pick the round number closest to needed
   for step in 10 20 50 100 200 500 1000; do
     if [ $cnt -le $step ]; then
       echo ${step}
@@ -215,24 +240,39 @@ add_ipfw_rules() {
     local vm_net="${net_pattern}.${vm_id}.0/24"
     local vm_gw="${net_pattern}.${vm_id}.1"
 
+    # rule sub-index
+    local pidx=0
+
+    # NFS if requested (NFS should be befre the main section, because we override TCP here that normally goes to TOR)
+    local nfs_hosts=$(get_per_vm_option "${iface}" "fw_allow_nfs")
+    local nfs_host nfs_port
+    for nfs_host in $nfs_hosts; do
+      for nfs_port in $nfs_ports; do
+        ${fwcmd} add $((cmd+pidx+0)) allow tcp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
+        ${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
+        pidx=$((pidx+2))
+      done
+    done
+
     # TCP: sink all TCP from this net to Tor's TransPort
-    ${fwcmd} add $((cmd+0)) fwd ${vm_gw},9030 tcp from $vm_net to any in via $iface keep-state
+    ${fwcmd} add $((cmd+pidx+0)) fwd ${vm_gw},9030 tcp from $vm_net to any in via $iface keep-state
 
     # DNS: allow DNS to go to TOR DNS port
-    ${fwcmd} add $((cmd+1)) allow udp from ${vm_net} to ${vm_gw} 53 via $iface keep-state
+    ${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${vm_gw} 53 via $iface keep-state
 
     # DHCP: sink DHCP to server on gateway (DHCP requests can have both zero and non-zero source addresses)
-    ${fwcmd} add $((cmd+3)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
-    ${fwcmd} add $((cmd+2)) fwd ${vm_gw} udp from ${vm_net} to 255.255.255.255 67 in via $iface
-    ${fwcmd} add $((cmd+4)) allow udp from ${vm_gw} to any 68 out via $iface
+    ${fwcmd} add $((cmd+pidx+3)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
+    ${fwcmd} add $((cmd+pidx+2)) fwd ${vm_gw} udp from ${vm_net} to 255.255.255.255 67 in via $iface
+    ${fwcmd} add $((cmd+pidx+4)) allow udp from ${vm_gw} to any 68 out via $iface
 
     # SSH: allow host-to-VM SSH for local administration
-    ${fwcmd} add $((cmd+5)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
+    ${fwcmd} add $((cmd+pidx+5)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
+
+    pidx=$((pidx+6)) # 6 main rules
 
     # HS: you can add any additional host-to-VM TCP ports for TOR hidden services, or other purposes
-    local pidx=0
     for port in $(unique_port_set_for_iface $iface); do
-      ${fwcmd} add $((cmd+6+pidx)) allow tcp from ${vm_gw} to ${vm_net} ${port} out via $iface keep-state
+      ${fwcmd} add $((cmd+pidx)) allow tcp from ${vm_gw} to ${vm_net} ${port} out via $iface keep-state
       pidx=$((pidx+1))
     done
 
@@ -275,7 +315,7 @@ start_tor_instance() {
   # add per-VM tor options
   IFS_OLD="$IFS"
   local IFS="${NL}"
-  local opts=$(eval "echo \"\$vbox_to_tor_${iface}_tor_options\"") opt
+  local opts=$(get_per_vm_option "${iface}" "tor_options") opt
   for opt in $opts; do
     opt=$(echo $opt | sed -e 's/^ *//g;s/ *$//g')
     if [ -n "${opt}" ]; then
@@ -618,7 +658,6 @@ vbox_to_tor_status() {
 
 vbox_to_tor_stop() {
   is_user_authorized_with_msg "stop $name" >&2 || return 1
-  echo "vbox_to_tor_stop keeps going"
   (
     parse_hs &&
     delete_ipfw_rules "${vbox_to_tor_ifaces}" &&
