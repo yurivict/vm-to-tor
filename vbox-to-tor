@@ -48,7 +48,7 @@ tor_conf=/usr/local/etc/tor/torrc
 # consts
 NL=$'\n'
 TAB=$'\t'
-nfs_ports="111 888 1110 2049 4045" # 111=portmap 888=mount? 1110=nfsd-status/nfsd-keepalive 2049=nfsd 4045=lockd
+nfs_ports="111 1110 2049 4045" # 111=portmap 1110=nfsd-status/nfsd-keepalive 2049=nfsd 4045=lockd + mountd port will be added based on the actual value
 
 load_rc_config ${name}
 
@@ -83,6 +83,11 @@ is_tor_installed() {
   [ -x /usr/local/bin/tor ] || return 1
 }
 
+fail() {
+  echo "${name}: $1" >&2
+  exit 1
+}
+
 get_per_vm_option() {
   echo $(eval "echo \$vbox_to_tor_${1}_${2}")
 }
@@ -115,13 +120,26 @@ calc_max_nfs_hosts_needed() {
   echo $max
 }
 
+nfs_ports_count() {
+  # +1 due to the mountd variable port
+  echo $(($(calc_lst_size "$nfs_ports")+1))
+}
+
+nfs_mountd_actual_port() {
+  local port=$(rpcinfo -p | grep " mountd$" | awk '{print $4}' | uniq)
+  if [ -z "$port" ]; then
+    fail "can't determine mountd port: NFS requested but mountd isn't running?"
+  fi
+  echo $port
+}
+
 calc_rule_step() {
   # 6 base rules required per interface
   local cnt=6
   # add ports requested by the user
   cnt=$((cnt+$(calc_lst_size "$(unique_port_set)")))
   # add NFS ports if requested: tcp and udp per port
-  cnt=$((cnt+2*$(calc_lst_size "$nfs_ports")*$(calc_max_nfs_hosts_needed)))
+  cnt=$((cnt+2*$(nfs_ports_count)*$(calc_max_nfs_hosts_needed)))
   # pick the round number closest to needed
   for step in 10 20 50 100 200 500 1000; do
     if [ $cnt -le $step ]; then
@@ -129,8 +147,7 @@ calc_rule_step() {
       return
     fi
   done
-  echo "too many ports requested"
-  exit 1
+  fail "too many ports requested"
 }
 
 check_tor_config() {
@@ -247,7 +264,7 @@ add_ipfw_rules() {
     local nfs_hosts=$(get_per_vm_option "${iface}" "fw_allow_nfs")
     local nfs_host nfs_port
     for nfs_host in $nfs_hosts; do
-      for nfs_port in $nfs_ports; do
+      for nfs_port in $nfs_ports $(nfs_mountd_actual_port); do
         ${fwcmd} add $((cmd+pidx+0)) allow tcp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
         ${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
         pidx=$((pidx+2))
@@ -657,7 +674,7 @@ vbox_to_tor_status() {
 }
 
 vbox_to_tor_stop() {
-  is_user_authorized_with_msg "stop $name" >&2 || return 1
+  is_user_authorized_with_msg "stop $name" || return 1
   (
     parse_hs &&
     delete_ipfw_rules "${vbox_to_tor_ifaces}" &&
