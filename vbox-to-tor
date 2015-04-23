@@ -27,6 +27,8 @@
 # vbox_to_tor_user (str):	Set it to the user name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
 # vbox_to_tor_group (str):	Set it to the group name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
 # vbox_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
+# vbox_to_tor_fw_rule_gap (uint):Setting the positive value makes vbox-to-tor leave that many available ipfw rules for every VM.
+#                                This is to allow an expecrt user to add any extra-rules per VM. Default: "0"
 # ## per-VM options
 # vbox_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
 # vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
@@ -64,6 +66,7 @@ load_rc_config ${name}
 : ${vbox_to_tor_user="_tor"}
 : ${vbox_to_tor_group="_tor"}
 : ${vbox_to_tor_show_colors="YES"}
+: ${vbox_to_tor_fw_rule_gap="0"}
 
 ## internals
 
@@ -93,7 +96,7 @@ get_per_vm_option() {
 }
 
 unique_port_set() {
-  echo $vbox_to_tor_extra_ports $vbox_to_tor_hs_all_ports | tr " ${TAB}" '\n' | sort | uniq
+  echo $vbox_to_tor_extra_ports $vbox_to_tor_hs_all_iports | tr " ${TAB}" '\n' | sort | uniq
 }
 
 unique_port_set_for_iface() {
@@ -101,7 +104,7 @@ unique_port_set_for_iface() {
   eval "echo \$vbox_to_tor_extra_ports \$vbox_to_tor_hs_${1}_iports | tr \" \${TAB}\" '\\n' | sort | uniq | grep -v ^22\$"
 }
 
-calc_lst_size() {
+lst_size() {
   local elt cnt=0
   for elt in $1; do
     cnt=$((cnt+1))
@@ -109,10 +112,14 @@ calc_lst_size() {
   echo $cnt
 }
 
+lst_uniquify() {
+  echo "$1" | tr " ${TAB}" '\n' | sort | uniq
+}
+
 calc_max_nfs_hosts_needed() {
   local max=0
   for iface in ${vbox_to_tor_ifaces}; do
-    local cnt=$(calc_lst_size "$(get_per_vm_option ${iface} fw_allow_nfs)")
+    local cnt=$(lst_size "$(get_per_vm_option ${iface} fw_allow_nfs)")
     if [ $cnt -gt $max ]; then
       max=$cnt
     fi
@@ -122,7 +129,7 @@ calc_max_nfs_hosts_needed() {
 
 nfs_ports_count() {
   # +1 due to the mountd variable port
-  echo $(($(calc_lst_size "$nfs_ports")+1))
+  echo $(($(lst_size "$nfs_ports")+1))
 }
 
 nfs_mountd_actual_port() {
@@ -134,12 +141,17 @@ nfs_mountd_actual_port() {
 }
 
 calc_rule_step() {
-  # 6 base rules required per interface
-  local cnt=6
-  # add ports requested by the user
-  cnt=$((cnt+$(calc_lst_size "$(unique_port_set)")))
+  local cnt=0
   # add NFS ports if requested: tcp and udp per port
   cnt=$((cnt+2*$(nfs_ports_count)*$(calc_max_nfs_hosts_needed)))
+  # 6 base rules required per interface
+  cnt=$((cnt+6))
+  # add extra ports and HS ports requested by the user (they are added together in add_ipfw_rules too)
+  cnt=$((cnt+$(lst_size "$(unique_port_set)")))
+  # add the gap if requested by user
+  cnt=$((cnt+${vbox_to_tor_fw_rule_gap}))
+  # add deny-all rule
+  cnt=$((cnt+1))
   # pick the round number closest to needed
   for step in 10 20 50 100 200 500 1000; do
     if [ $cnt -le $step ]; then
@@ -205,6 +217,7 @@ parse_hs() {
     eval "vbox_to_tor_hs_${iface}_iports=\"\$vbox_to_tor_hs_${iface}_iports ${iport}\""
     eval "vbox_to_tor_hs_all_iports=\"\$vbox_to_tor_hs_all_iports ${iport}\""
   done
+  vbox_to_tor_hs_all_iports=$(lst_uniquify "${vbox_to_tor_hs_all_iports}")
 }
 
 create_tap() {
