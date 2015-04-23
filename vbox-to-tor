@@ -31,7 +31,8 @@
 #                                This is to allow an expert user to add any extra-rules per VM. Default: "0"
 # ## per-VM options
 # vbox_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
-# vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
+# vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS server IP addresses
+#                                       that VM is allowed to mount from. Default: ""
 #
 
 . /etc/rc.subr
