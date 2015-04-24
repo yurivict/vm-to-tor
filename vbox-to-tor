@@ -28,11 +28,10 @@
 # vbox_to_tor_group (str):	Set it to the group name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
 # vbox_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
 # vbox_to_tor_fw_rule_gap (uint):Setting the positive value makes vbox-to-tor leave that many available ipfw rules for every VM.
-#                                This is to allow an expert user to add any extra-rules per VM. Default: "0"
+#                                This is to allow an expecrt user to add any extra-rules per VM. Default: "0"
 # ## per-VM options
 # vbox_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
-# vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS server IP addresses
-#                                       that VM is allowed to mount from. Default: ""
+# vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
 #
 
 . /etc/rc.subr
