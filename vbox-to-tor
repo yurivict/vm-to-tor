@@ -86,11 +86,6 @@ is_tor_installed() {
   [ -x /usr/local/bin/tor ] || return 1
 }
 
-fail() {
-  echo "${name}: $1" >&2
-  exit 1
-}
-
 get_per_vm_option() {
   echo $(eval "echo \$vbox_to_tor_${1}_${2}")
 }
@@ -133,9 +128,11 @@ nfs_ports_count() {
 }
 
 nfs_mountd_actual_port() {
-  local port=$(rpcinfo -p | grep " mountd$" | awk '{print $4}' | uniq)
-  if [ -z "$port" ]; then
-    fail "can't determine mountd port: NFS requested but mountd isn't running?"
+  local port
+  port=$(rpcinfo -p | grep " mountd$" | awk '{print $4}' | uniq 2>/dev/null)
+  if [ $? -ne 0 -o -z "$port" ]; then
+    echo "${name}: can't determine mountd port: NFS requested but mountd isn't running?" >&2
+    return 1
   fi
   echo $port
 }
@@ -159,7 +156,8 @@ calc_rule_step() {
       return
     fi
   done
-  fail "too many ports requested"
+  echo "${name}: too many ports requested" >&2
+  return 1
 }
 
 check_tor_config() {
@@ -265,6 +263,9 @@ add_ipfw_rules() {
   local port
   local fwcmd="/sbin/ipfw -q"
 
+  local nfs_mountd_port
+  nfs_mountd_port=$(nfs_mountd_actual_port) || return 1
+
   for iface in $ifaces; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
     local vm_net="${net_pattern}.${vm_id}.0/24"
@@ -277,7 +278,7 @@ add_ipfw_rules() {
     local nfs_hosts=$(get_per_vm_option "${iface}" "fw_allow_nfs")
     local nfs_host nfs_port
     for nfs_host in $nfs_hosts; do
-      for nfs_port in $nfs_ports $(nfs_mountd_actual_port); do
+      for nfs_port in $nfs_ports $nfs_mountd_port; do
         ${fwcmd} add $((cmd+pidx+0)) allow tcp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
         ${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
         pidx=$((pidx+2))
