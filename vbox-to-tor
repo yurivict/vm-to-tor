@@ -87,7 +87,7 @@ is_tor_installed() {
 }
 
 get_per_vm_option() {
-  echo $(eval "echo \$vbox_to_tor_${1}_${2}")
+  echo "$(eval echo \"\$vbox_to_tor_${1}_${2}\")"
 }
 
 unique_port_set() {
