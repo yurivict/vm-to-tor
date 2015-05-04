@@ -336,6 +336,7 @@ start_tor_instance() {
   cmd="${cmd} --+Log \"notice file ${dir}/tor.log\""
   cmd="${cmd} --DNSPort 53"
   cmd="${cmd} --DNSListenAddress ${gw}"
+  cmd="${cmd} --TransProxyType ipfw"
   cmd="${cmd} --TransPort 9030"
   cmd="${cmd} --TransListenAddress ${gw}"
   cmd="${cmd} --SocksPort 0"
