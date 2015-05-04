@@ -31,8 +31,6 @@ Choose "Bridged Adapter" with one of the tapN interfaces for the VM you want to 
 
 ## Installation (step by step)
 
-(Currently you need this patch added to tor port and tor rebuilt and reinstalled: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199381)
-
 To install vbox-to-tor itself copy the file:<br/>
 ```shell
 cp vbox-to-tor /usr/local/etc/rc.d/
