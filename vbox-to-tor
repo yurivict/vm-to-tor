@@ -34,6 +34,11 @@
 # vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
 #
 
+#
+# This module depends on these external executables in LOCALBASE:
+# * bin/tor
+#
+
 . /etc/rc.subr
 
 name=vbox_to_tor
@@ -42,11 +47,13 @@ start_cmd="vbox_to_tor_start"
 stop_cmd="vbox_to_tor_stop"
 status_cmd="vbox_to_tor_status"
 
+: ${LOCALBASE="/usr/local"}
+
 # signature that will be placed into torrc to later be able to find our lines
 torrc_signature="VBoxToTOR"
 # where all tors data dirs are
 tor_dir=/var/tmp/vbox-to-tor
-tor_conf=/usr/local/etc/tor/torrc
+tor_conf=${LOCALBASE}/etc/tor/torrc
 # consts
 NL=$'\n'
 TAB=$'\t'
@@ -83,7 +90,7 @@ is_user_authorized_with_msg() {
 }
 
 is_tor_installed() {
-  [ -x /usr/local/bin/tor ] || return 1
+  [ -x ${LOCALBASE}/bin/tor ] || return 1
 }
 
 get_per_vm_option() {
@@ -163,10 +170,10 @@ calc_rule_step() {
 check_tor_config() {
   # check we can really write /usr/local/etc/tor/torrc
   local rnd=$(jot -r 1 1000000 10000000)
-  (test -w /usr/local/etc/tor/torrc &&
-   test -w /usr/local/etc/tor &&
-   touch /usr/local/etc/tor/torrc.tmp.${rnd} &&
-   rm -f /usr/local/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>/dev/null
+  (test -w ${LOCALBASE}/etc/tor/torrc &&
+   test -w ${LOCALBASE}/etc/tor &&
+   touch ${LOCALBASE}/etc/tor/torrc.tmp.${rnd} &&
+   rm -f ${LOCALBASE}/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>/dev/null
 }
 
 ensure_kmod_loaded() {
@@ -328,7 +335,7 @@ start_tor_instance() {
   # create blank torrc, because it isn't clear how to avoid using the default
   touch ${dir}/torrc && chown ${vbox_to_tor_user}:${vbox_to_tor_group} ${dir}/torrc && chmod 0600 ${dir}/torrc
   # prepare command line arguments
-  local cmd="/usr/local/bin/tor"
+  local cmd="${LOCALBASE}/bin/tor"
   cmd="${cmd} -f ${dir}/torrc"
   cmd="${cmd} --PidFile ${dir}/tor.pid"
   cmd="${cmd} --RunAsDaemon 1"
