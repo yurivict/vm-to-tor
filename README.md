@@ -11,7 +11,6 @@ You need to have the ports tree installed. Here are all commands you need to ins
 cd /tmp
 git clone https://github.com/yurivict/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
-cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
 rm -rf tiny-dhcp-server
 pkg install --automatic --no-repo-update python34
 (cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 make install clean)
@@ -24,7 +23,6 @@ rm -rf freebsd-vbox-to-tor
 In order to run it you need to have both VirtualBox and TOR installed and running, and execute these commands as root:
 ```shell
 /usr/local/etc/rc.d/vbox-to-tor start
-/usr/local/etc/rc.d/tiny-dhcp-server start
 /usr/local/etc/rc.d/tor restart
 ```
 Choose "Bridged Adapter" with one of the tapN interfaces for the VM you want to connect to TOR.
@@ -54,7 +52,6 @@ vbox-to-tor depends on this DHCP server: https://github.com/yurivict/tiny-dhcp-s
 ```shell
 git clone https://github.com/yurivict/tiny-dhcp-server
 cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
-cp tiny-dhcp-server/tiny-dhcp-server /usr/local/etc/rc.d/
 rm -rf tiny-dhcp-server
 pkg install --automatic --no-repo-update python34
 (cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 make install clean)

@@ -37,6 +37,7 @@
 #
 # This module depends on these external executables in LOCALBASE:
 # * bin/tor
+# * bin/tiny-dhcp-daemon
 #
 
 . /etc/rc.subr
@@ -76,6 +77,10 @@ load_rc_config ${name}
 : ${vbox_to_tor_fw_rule_gap="0"}
 
 ## internals
+
+echo_err() {
+  echo "${name}: $1" >&2
+}
 
 tm() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')]"
@@ -167,13 +172,29 @@ calc_rule_step() {
   return 1
 }
 
+run_su() {
+  su -m ${vbox_to_tor_user} -c "$1"
+}
+
+## major steps in init/fini
+
+create_dir() {
+  rm -rf "${tor_dir}"
+  (mkdir "${tor_dir}" && chown ${vbox_to_tor_user}:${vbox_to_tor_group} "${tor_dir}" && chmod 600 "${tor_dir}") > /dev/null 2>&1
+}
+
+delete_dir() {
+  rm -rf "${tor_dir}" > /dev/null 2>&1
+}
+
 check_tor_config() {
   # check we can really write /usr/local/etc/tor/torrc
   local rnd=$(jot -r 1 1000000 10000000)
   (test -w ${LOCALBASE}/etc/tor/torrc &&
    test -w ${LOCALBASE}/etc/tor &&
    touch ${LOCALBASE}/etc/tor/torrc.tmp.${rnd} &&
-   rm -f ${LOCALBASE}/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>/dev/null
+   rm -f ${LOCALBASE}/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>&1 ||
+     ! echo_err "Failed to check_tor_config" || return 1
 }
 
 ensure_kmod_loaded() {
@@ -225,6 +246,12 @@ parse_hs() {
   vbox_to_tor_hs_all_iports=$(lst_uniquify "${vbox_to_tor_hs_all_iports}")
 }
 
+check_process_by_pid_file() {
+  local pid_file="$1"
+  [ -r ${pid_file} -a -s ${pid_file} -a \
+    "$(procstat $(cat ${pid_file} 2>/dev/null) 2>/dev/null | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${pid_file} 2>/dev/null)" ] >/dev/null 2>&1 || return 1
+}
+
 create_tap() {
   for iface in ${vbox_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
@@ -233,7 +260,7 @@ create_tap() {
          ifconfig $iface inet "${vbox_to_tor_net_pattern}.${vm_id}.1/24" && \
          chown root:vboxusers /dev/$iface && \
          chmod 0660 /dev/$iface) >/dev/null 2>/dev/null; then
-      echo "Failed to create interface $iface" >&2
+      echo_err "Failed to create interface $iface"
       destroy_tap_silent
       return 1
     fi
@@ -243,7 +270,7 @@ create_tap() {
 destroy_tap() {
   for iface in ${vbox_to_tor_ifaces}; do
     if ! ifconfig $iface destroy >/dev/null 2>/dev/null; then
-      echo "Failed to destroy interface $iface" >&2
+      echo_err "Failed to destroy interface $iface"
       destroy_tap_silent
       return 1
     fi
@@ -324,6 +351,33 @@ add_ipfw_rules() {
   done
 }
 
+start_daemon_and_check() {
+  local cmd="$1"
+  local pid_file="$2"
+  ${cmd} >/dev/null 2>&1
+  check_process_by_pid_file "${pid_file}" || return 1
+}
+
+stop_daemon() {
+  local pid_file="$1"
+  check_process_by_pid_file "${pid_file}" && kill $(cat ${pid_file}) >/dev/null 2>&1 || return 1
+  # TODO need to wait here for this pid, because when we delete the enclosing folder
+  #      this daemon might still not have deleted its pid file, and will fail for that reason which isn't nice
+  #      However, it looks like there is currently no way for the shell program to wait for the file deletion.
+}
+
+start_daemons() {
+  local dir="${tor_dir}"
+  # DHCP daemon
+  start_daemon_and_check "${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vbox_to_tor_user}:${vbox_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vbox_to_tor_ifaces}" "${dir}/dhcp-daemon.pid" ||
+    ! echo_err "Failed to start DHCP daemon" || return 1
+}
+
+stop_daemons() {
+  stop_daemon "${tor_dir}/dhcp-daemon.pid" ||
+    ! echo_err "Failed to stop DHCP daemon" || return 1
+}
+
 start_tor_instance() {
   local iface="$1"
   local dir="$2"
@@ -331,7 +385,7 @@ start_tor_instance() {
   local cl="$4"
   # create dirs
   (mkdir -p "${dir}/data" && chown -R ${vbox_to_tor_user}:${vbox_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
-    ! echo "${name}: Failed to create ${dir}/data" || return 1
+    ! echo_err "${name}: Failed to create ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
   touch ${dir}/torrc && chown ${vbox_to_tor_user}:${vbox_to_tor_group} ${dir}/torrc && chmod 0600 ${dir}/torrc
   # prepare command line arguments
@@ -390,33 +444,31 @@ start_tor_instance() {
   echo "CMD: ${cmd}" >> ${dir}/cmd.log
   echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   # run it
-  su -m ${vbox_to_tor_user} -c "umask 0077; ${cmd}" >> ${dir}/cmd.log 2>&1
+  run_su "${cmd}" >> ${dir}/cmd.log 2>&1
   echo "$(tm) ----- END OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   # check if it is running
-  [ -r ${dir}/tor.pid -a -s ${dir}/tor.pid -a \
-    "$(procstat $(cat ${dir}/tor.pid) | tail -1 | sed -E 's/^[[:space:]]*([0-9]+).*/\1/g' 2>/dev/null)" = "$(cat ${dir}/tor.pid)" ]
+  check_process_by_pid_file "${dir}/tor.pid" || return 1
 }
 
 start_tor_instances() {
-  (rm -rf ${tor_dir}; mkdir -p "${tor_dir}" && chown ${vbox_to_tor_user}:${vbox_to_tor_group} "${tor_dir}" && chmod 0700 "${tor_dir}") ||
-    ! echo "${name}: Failed to create ${tor_dir}" || return 1
+  (mkdir -p "${tor_dir}" && chown ${vbox_to_tor_user}:${vbox_to_tor_group} "${tor_dir}" && chmod 0700 "${tor_dir}") >/dev/null 2>&1 ||
+    ! echo_err "Failed to create ${tor_dir}" || return 1
   for iface in ${vbox_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
     local vm_gw="${vbox_to_tor_net_pattern}.${vm_id}.1"
     local vm_cl="${vbox_to_tor_net_pattern}.${vm_id}.2"
 
     start_tor_instance "${iface}" "${tor_dir}/$iface" "${vm_gw}" "${vm_cl}" ||
-      ! echo "${name}: Failed to start tor instance $iface" || stop_tor_instances_silent || return 1
+      ! echo_err "Failed to start tor instance for VM $iface" || stop_tor_instances_silent || return 1
   done
 }
 
 stop_tor_instances() {
   for iface in ${vbox_to_tor_ifaces}; do
     ([ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid)) ||
-       ! echo "${name}: failed to stop VM $iface" || stop_tor_instances_silent || return 1
+       ! echo_err "Failed to stop tor instance for VM $iface" || ! stop_tor_instances_silent || return 1
     # XXX check the correctness of the above
   done
-  rm -rf ${tor_dir}
 }
 
 stop_tor_instances_silent() {
@@ -609,17 +661,19 @@ vbox_to_tor_start() {
   # checks
   is_user_authorized_with_msg "start ${name}" || return 1
   [ ${vbox_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo "Tor is not installed, $name can't start" || return 1
-  # start
+  # start (every procedure below is responsible for printing its error messages if any)
   (
+    create_dir &&
     parse_hs &&
-    check_tor_config &&
+    ([ ${vbox_to_tor_use_base} = "NO" ] || check_tor_config) &&
     ensure_kmod_loaded "if_tap" &&
     ensure_kmod_loaded "ipfw" &&
     create_tap &&
     add_ipfw_rules "${vbox_to_tor_ifaces}" "$vbox_to_tor_net_pattern" &&
+    start_daemons &&
     change_sysctl &&
     start_tor
-  ) || return 1
+  ) || ! echo_err "Failed to start $name" || return 1
 }
 
 vbox_to_tor_status() {
@@ -697,12 +751,14 @@ vbox_to_tor_status() {
 
 vbox_to_tor_stop() {
   is_user_authorized_with_msg "stop $name" || return 1
-  (
-    parse_hs &&
-    delete_ipfw_rules "${vbox_to_tor_ifaces}" &&
-    destroy_tap &&
-    stop_tor
-  ) || return 1
+  local fail=0
+  parse_hs || fail=$((fail+1))
+  delete_ipfw_rules "${vbox_to_tor_ifaces}" || fail=$((fail+1))
+  stop_daemons || fail=$((fail+1))
+  destroy_tap || fail=$((fail+1))
+  stop_tor || fail=$((fail+1))
+  delete_dir || fail=$((fail+1))
+  [ $fail -eq 0 ] || ! echo_err "Failed to stop $name: $fail problems" || return 1
 }
 
 command="/usr/bin/true"
