@@ -37,7 +37,8 @@
 #
 # This module depends on these external executables in LOCALBASE:
 # * bin/tor
-# * bin/tiny-dhcp-daemon
+# * bin/tiny-dhcp
+# * bin/tiny-udp-anti-nat
 #
 
 . /etc/rc.subr
@@ -99,7 +100,11 @@ is_tor_installed() {
 }
 
 get_per_vm_option() {
-  echo "$(eval echo \"\$vbox_to_tor_${1}_${2}\")"
+  eval echo "\"\$vbox_to_tor_${1}_${2}\""
+}
+
+set_per_vm_option() {
+  eval "vbox_to_tor_${1}_${2}=\"${3}\""
 }
 
 unique_port_set() {
@@ -153,8 +158,8 @@ calc_rule_step() {
   local cnt=0
   # add NFS ports if requested: tcp and udp per port
   cnt=$((cnt+2*$(nfs_ports_count)*$(calc_max_nfs_hosts_needed)))
-  # 6 base rules required per interface
-  cnt=$((cnt+6))
+  # 9 base rules required per interface
+  cnt=$((cnt+9))
   # add extra ports and HS ports requested by the user (they are added together in add_ipfw_rules too)
   cnt=$((cnt+$(lst_size "$(unique_port_set)")))
   # add the gap if requested by user
@@ -285,8 +290,7 @@ destroy_tap_silent() {
 
 change_sysctl() {
   # sysctl vars: VBox process needs to be able to open tapN, and listen on DNS port 53
-  sysctl net.link.tap.user_open=1 >/dev/null &&
-  sysctl net.inet.ip.portrange.reservedhigh=52 >/dev/null
+  sysctl net.link.tap.user_open=1 >/dev/null
 }
 
 add_ipfw_rules() {
@@ -322,18 +326,25 @@ add_ipfw_rules() {
     # TCP: sink all TCP from this net to Tor's TransPort
     ${fwcmd} add $((cmd+pidx+0)) fwd ${vm_gw},9030 tcp from $vm_net to any in via $iface keep-state
 
-    # DNS: allow DNS to go to TOR DNS port
-    ${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${vm_gw} 53 via $iface keep-state
+    ## DNS (direct): allow DNS to go to TOR DNS port (no port conversion, needs net.inet.ip.portrange.reservedhigh=52)
+    #${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${vm_gw} 53 via $iface keep-state
+    # DNS (with port conversion): convert UDP port 53->10053 using anti-nat, no need for sysctl change
+    local divert_port=$cmd
+    ${fwcmd} add $((cmd+pidx+1)) divert $divert_port log udp from ${vm_net} to any dst-port 53 in via $iface
+    ${fwcmd} add $((cmd+pidx+2)) divert $divert_port log udp from ${vm_gw} to ${vm_net} src-port 10053 out via $iface
+    ${fwcmd} add $((cmd+pidx+3)) allow log udp from ${vm_net} to ${vm_gw} dst-port 10053 in via $iface
+    ${fwcmd} add $((cmd+pidx+4)) allow log udp from ${vm_gw} to ${vm_net} src-port 53 out via $iface
+    set_per_vm_option ${iface} "dns_anti_nat_daemon_cmd" "${LOCALBASE}/bin/tiny-udp-anti-nat -d -U ${vbox_to_tor_user}:${vbox_to_tor_group} -p ${tor_dir}/udp-anti-nat-${iface}.pid -l ${tor_dir}/udp-anti-nat-${iface}.log -D ${vm_gw}:$divert_port -P 53:10053"
 
     # DHCP: sink DHCP to server on gateway (DHCP requests can have both zero and non-zero source addresses)
-    ${fwcmd} add $((cmd+pidx+3)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
-    ${fwcmd} add $((cmd+pidx+2)) fwd ${vm_gw} udp from ${vm_net} to 255.255.255.255 67 in via $iface
-    ${fwcmd} add $((cmd+pidx+4)) allow udp from ${vm_gw} to any 68 out via $iface
+    ${fwcmd} add $((cmd+pidx+5)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
+    ${fwcmd} add $((cmd+pidx+6)) fwd ${vm_gw} udp from ${vm_net} to 255.255.255.255 67 in via $iface
+    ${fwcmd} add $((cmd+pidx+7)) allow udp from ${vm_gw} to any 68 out via $iface
 
     # SSH: allow host-to-VM SSH for local administration
-    ${fwcmd} add $((cmd+pidx+5)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
+    ${fwcmd} add $((cmd+pidx+8)) allow tcp from ${vm_gw} to ${vm_net} 22 out via $iface keep-state
 
-    pidx=$((pidx+6)) # 6 main rules
+    pidx=$((pidx+9)) # 9 main rules
 
     # HS: you can add any additional host-to-VM TCP ports for TOR hidden services, or other purposes
     for port in $(unique_port_set_for_iface $iface); do
@@ -371,11 +382,20 @@ start_daemons() {
   # DHCP daemon
   start_daemon_and_check "${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vbox_to_tor_user}:${vbox_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vbox_to_tor_ifaces}" "${dir}/dhcp-daemon.pid" ||
     ! echo_err "Failed to start DHCP daemon" || return 1
+
+  for iface in ${vbox_to_tor_ifaces}; do
+    start_daemon_and_check "$(get_per_vm_option ${iface} dns_anti_nat_daemon_cmd)" ${tor_dir}/udp-anti-nat-${iface}.pid ||
+      ! echo_err "Failed to start DNS anti-nat daemon for VM ${iface}" || return 1
+  done
 }
 
 stop_daemons() {
   stop_daemon "${tor_dir}/dhcp-daemon.pid" ||
     ! echo_err "Failed to stop DHCP daemon" || return 1
+  for iface in ${vbox_to_tor_ifaces}; do
+    stop_daemon "${tor_dir}/udp-anti-nat-${iface}.pid" ||
+      ! echo_err "Failed to stop DNS anti-nat daemon for VM ${iface}" || return 1
+  done
 }
 
 start_tor_instance() {
@@ -395,7 +415,7 @@ start_tor_instance() {
   cmd="${cmd} --RunAsDaemon 1"
   cmd="${cmd} --DataDirectory ${dir}/data"
   cmd="${cmd} --+Log \"notice file ${dir}/tor.log\""
-  cmd="${cmd} --DNSPort 53"
+  cmd="${cmd} --DNSPort 10053"
   cmd="${cmd} --DNSListenAddress ${gw}"
   cmd="${cmd} --TransProxyType ipfw"
   cmd="${cmd} --TransPort 9030"
@@ -408,7 +428,7 @@ start_tor_instance() {
   # add per-VM tor options
   IFS_OLD="$IFS"
   local IFS="${NL}"
-  local opts=$(get_per_vm_option "${iface}" "tor_options") opt
+  local opts=$(get_per_vm_option ${iface} "tor_options") opt
   for opt in $opts; do
     opt=$(echo $opt | sed -e 's/^ *//g;s/ *$//g')
     if [ -n "${opt}" ]; then
