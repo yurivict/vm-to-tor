@@ -183,11 +183,22 @@ run_su() {
   su -m ${vm_to_tor_user} -c "$1"
 }
 
+set_file_perms() {
+  chown ${vm_to_tor_user}:${vm_to_tor_group} "$1"
+}
+
+save_daemon_cmd_file() {
+  local cmd="$1"
+  local dname="$2"
+  echo "${cmd}" > ${tor_dir}/${dname}.cmd
+  set_file_perms ${tor_dir}/${dname}.cmd
+}
+
 ## major steps in init/fini
 
 create_dir() {
   rm -rf "${tor_dir}"
-  (mkdir "${tor_dir}" && chown ${vm_to_tor_user}:${vm_to_tor_group} "${tor_dir}" && chmod 600 "${tor_dir}") > /dev/null 2>&1
+  (mkdir "${tor_dir}" && set_file_perms "${tor_dir}" && chmod 600 "${tor_dir}") > /dev/null 2>&1
 }
 
 delete_dir() {
@@ -382,12 +393,17 @@ stop_daemon() {
 start_daemons() {
   local dir="${tor_dir}"
   # DHCP daemon
-  start_daemon_and_check "${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vm_to_tor_ifaces}" "${dir}/dhcp-daemon.pid" ||
+  local cmd="${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vm_to_tor_ifaces}"
+  start_daemon_and_check "${cmd}" "${dir}/dhcp-daemon.pid" ||
     ! echo_err "Failed to start DHCP daemon" || return 1
+  save_daemon_cmd_file "${cmd}" dhcp-daemon
 
+  # anti-nat daemons
   for iface in ${vm_to_tor_ifaces}; do
-    start_daemon_and_check "$(get_per_vm_option ${iface} dns_anti_nat_daemon_cmd)" ${tor_dir}/udp-anti-nat-${iface}.pid ||
+    local cmd="$(get_per_vm_option ${iface} dns_anti_nat_daemon_cmd)"
+    start_daemon_and_check "${cmd}" ${tor_dir}/udp-anti-nat-${iface}.pid ||
       ! echo_err "Failed to start DNS anti-nat daemon for VM ${iface}" || return 1
+    save_daemon_cmd_file "${cmd}" udp-anti-nat-${iface}
   done
 }
 
@@ -409,7 +425,7 @@ start_tor_instance() {
   (mkdir -p "${dir}/data" && chown -R ${vm_to_tor_user}:${vm_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
     ! echo_err "${nameb}: Failed to create ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
-  touch ${dir}/torrc && chown ${vm_to_tor_user}:${vm_to_tor_group} ${dir}/torrc && chmod 0600 ${dir}/torrc
+  touch ${dir}/torrc && set_file_perms ${dir}/torrc && chmod 0600 ${dir}/torrc
   # prepare command line arguments
   local cmd="${LOCALBASE}/bin/tor"
   cmd="${cmd} -f ${dir}/torrc"
@@ -461,7 +477,7 @@ start_tor_instance() {
     [ $hidx -lt 2 ] && hidx=$((hidx+1)) || hidx=0
   done
   # log
-  touch ${dir}/cmd.log && chown ${vm_to_tor_user}:${vm_to_tor_group} ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
+  touch ${dir}/cmd.log && set_file_perms ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
   echo "$(tm) ----- Running VM (tunnel $iface) -----" >> ${dir}/cmd.log
   echo "CMD: ${cmd}" >> ${dir}/cmd.log
   echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
@@ -473,7 +489,7 @@ start_tor_instance() {
 }
 
 start_tor_instances() {
-  (mkdir -p "${tor_dir}" && chown ${vm_to_tor_user}:${vm_to_tor_group} "${tor_dir}" && chmod 0700 "${tor_dir}") >/dev/null 2>&1 ||
+  (mkdir -p "${tor_dir}" && set_file_perms "${tor_dir}" && chmod 0700 "${tor_dir}") >/dev/null 2>&1 ||
     ! echo_err "Failed to create ${tor_dir}" || return 1
   for iface in ${vm_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
