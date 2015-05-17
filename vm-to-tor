@@ -48,6 +48,7 @@ rcvar=vm_to_tor_enable
 start_cmd="vm_to_tor_start"
 stop_cmd="vm_to_tor_stop"
 status_cmd="vm_to_tor_status"
+required_modules="ipfw ipdivert if_tap"
 
 : ${LOCALBASE="/usr/local"}
 
@@ -203,9 +204,9 @@ check_tor_config() {
 }
 
 ensure_kmod_loaded() {
-  if !(kldstat -v | grep $1 >/dev/null); then
-    kldload $1
-  fi
+#  if !(kldstat -v | grep $1 >/dev/null); then
+#    kldload $1
+#  fi
 }
 
 parse_hs() {
