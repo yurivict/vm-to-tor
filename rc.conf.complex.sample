@@ -4,6 +4,7 @@
 # (2) allows TOR routers administration (with vm-ctrl command)
 # (3) allows machines tap0 and tap1 to mount NFS disks on NFS server 192.168.1.2
 # (4) limits machine tap1 to use exit nodes in Germany and France only
+# (5) hosts hidden services /hidden/svc1 and /hidden/svc2 on tap0, and service /hidden/svc3 on tap1
 #
 # You probably need to adjust this configuration, depending on which features
 # you need, and which ones you don't need.
@@ -25,3 +26,7 @@ vm_to_tor_tap0_fw_allow_nfs="192.168.1.2"
 vm_to_tor_tap1_fw_allow_nfs="192.168.1.2"
 # (4) limit exit nodes
 vm_to_tor_tap1_tor_options="ExitNodes {de},{fr}"
+# (5) hidden services
+vm_to_tor_hs="${vm_to_tor_hs}|tap0 /hidden/svc1 80    8080"
+vm_to_tor_hs="${vm_to_tor_hs}|tap0 /hidden/svc2 80    8080"
+vm_to_tor_hs="${vm_to_tor_hs}|tap1 /hidden/svc3 443   10443"
