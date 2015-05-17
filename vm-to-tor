@@ -343,7 +343,7 @@ add_ipfw_rules() {
     # rule sub-index
     local pidx=0
 
-    # NFS if requested (NFS should be befre the main section, because we override TCP here that normally goes to TOR)
+    # NFS if requested (NFS should be befre the main section, because we override TCP here that normally goes to tor)
     local nfs_hosts=$(get_per_vm_option "${iface}" "fw_allow_nfs")
     local nfs_host nfs_port
     for nfs_host in $nfs_hosts; do
@@ -357,7 +357,7 @@ add_ipfw_rules() {
     # TCP: sink all TCP from this net to Tor's TransPort
     ${fwcmd} add $((cmd+pidx+0)) fwd ${vm_gw},9030 tcp from $vm_net to any in via $iface keep-state
 
-    ## DNS (direct): allow DNS to go to TOR DNS port (no port conversion, needs net.inet.ip.portrange.reservedhigh=52)
+    ## DNS (direct): allow DNS to go to tor DNS port (no port conversion, needs net.inet.ip.portrange.reservedhigh=52)
     #${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${vm_gw} 53 via $iface keep-state
     # DNS (with port conversion): convert UDP port 53->10053 using anti-nat, no need for sysctl change
     local divert_port=$cmd
@@ -377,7 +377,7 @@ add_ipfw_rules() {
 
     pidx=$((pidx+9)) # 9 main rules
 
-    # HS: you can add any additional host-to-VM TCP ports for TOR hidden services, or other purposes
+    # HS: you can add any additional host-to-VM TCP ports for tor hidden services, or other purposes
     for port in $(unique_port_set_for_iface $iface); do
       ${fwcmd} add $((cmd+pidx)) allow tcp from ${vm_gw} to ${vm_net} ${port} out via $iface keep-state
       pidx=$((pidx+1))
@@ -387,7 +387,7 @@ add_ipfw_rules() {
     ${fwcmd} add $((cmd+step-1)) deny all from any to any via $iface
 
     # report
-    echo "Added ipfw rules for VM ${iface} on ${vm_net} to connect to TOR"
+    echo "${nameb}: Added ipfw rules for VM ${iface} on ${vm_net} to connect to tor"
     # move on
     cmd=$((cmd+step))
   done
