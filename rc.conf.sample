@@ -1,10 +1,7 @@
 #
-# For VirtualBox VMs to TOR connections
+# For 3 virtual machines to TOR connections
 #
 firewall_enable="YES"
 firewall_type="open"
-vbox_tor_ifaces="tap0 tap1 tap2"
 vm_to_tor_enable="YES"
-vm_to_tor_ifaces="${vbox_tor_ifaces}"
-tiny_dhcp_server_enable="YES"
-tiny_dhcp_server_ifaces="${vbox_tor_ifaces}"
+vm_to_tor_ifaces="tap0 tap1 tap2"
