@@ -494,13 +494,13 @@ start_tor_instance() {
     [ $hidx -lt 2 ] && hidx=$((hidx+1)) || hidx=0
   done
   # log
-  touch ${dir}/cmd.log && set_file_perms_r ${dir}/cmd.log
-  echo "$(tm) ----- Running VM (tunnel $iface) -----" >> ${dir}/cmd.log
-  echo "CMD: ${cmd}" >> ${dir}/cmd.log
-  echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
+  echo "${cmd}" >> ${dir}/tor.cmd
+  set_file_perms_r ${dir}/tor.cmd
   # run it
+  echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
   run_su "${cmd}" >> ${dir}/cmd.log 2>&1
   echo "$(tm) ----- END OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
+  set_file_perms_r ${dir}/cmd.log
   # check if it is running
   check_process_by_pid_file "${dir}/tor.pid" || return 1
 }
