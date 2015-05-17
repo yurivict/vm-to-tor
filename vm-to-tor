@@ -264,14 +264,14 @@ parse_hs() {
           iport="${fld}"
           ;;
         *)
-          echo_err "${nameb}: Too many fields in the hidden service definition: ${hs}"
+          echo_err "Too many fields in the hidden service definition: ${hs}"
           return 1
           ;;
       esac
       fidx=$((fidx+1))
     done
     if [ -z "${iface}" -o -z "${dir}" -o -z "${oport}" -o -z "${iport}" ]; then
-      echo_err "${nameb}: Too few fields in the hidden service definition: ${hs}"
+      echo_err "Too few fields in the hidden service definition: ${hs}"
       return 1
     fi
     # fill hs info into global vars
