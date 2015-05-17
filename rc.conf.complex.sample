@@ -1,3 +1,5 @@
+#!/bin/sh
+
 #
 # Complex configuration file:
 # (1) connects 4 virtual machines (tap0 tap1 tap2 tap3) to TOR
