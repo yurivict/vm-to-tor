@@ -44,8 +44,6 @@ firewall_type="open"
 vbox_tor_ifaces="tap0 tap1 tap2"
 vm_to_tor_enable="YES"
 vm_to_tor_ifaces="${vbox_tor_ifaces}"
-tiny_dhcp_server_enable="YES"
-tiny_dhcp_server_ifaces="${vbox_tor_ifaces}"
 ```
 
 vm-to-tor depends on this DHCP server: https://github.com/yurivict/tiny-dhcp-server. To install it execute these commands (which will require the ports tree):
