@@ -44,6 +44,7 @@
 . /etc/rc.subr
 
 name=vm_to_tor
+nameb=vm-to-tor
 rcvar=vm_to_tor_enable
 start_cmd="vm_to_tor_start"
 stop_cmd="vm_to_tor_stop"
@@ -81,7 +82,7 @@ load_rc_config ${name}
 ## internals
 
 echo_err() {
-  echo "${name}: $1" >&2
+  echo "${nameb}: $1" >&2
 }
 
 tm() {
@@ -93,7 +94,7 @@ is_user_authorized() {
 }
 
 is_user_authorized_with_msg() {
-  is_user_authorized || ! echo "Only root and ${vm_to_tor_user} can $1" >&2 || return 1
+  is_user_authorized || ! echo_err "Only root and ${vm_to_tor_user} can $1" || return 1
 }
 
 is_tor_installed() {
@@ -149,7 +150,7 @@ nfs_mountd_actual_port() {
   local port
   port=$(rpcinfo -p | grep " mountd$" | awk '{print $4}' | uniq 2>/dev/null)
   if [ $? -ne 0 -o -z "$port" ]; then
-    echo "${name}: can't determine mountd port: NFS requested but mountd isn't running?" >&2
+    echo_err "${nameb}: can't determine mountd port: NFS requested but mountd isn't running?"
     return 1
   fi
   echo $port
@@ -174,7 +175,7 @@ calc_rule_step() {
       return
     fi
   done
-  echo "${name}: too many ports requested" >&2
+  echo_err "${nameb}: too many ports requested"
   return 1
 }
 
@@ -234,14 +235,14 @@ parse_hs() {
           iport="${fld}"
           ;;
         *)
-          echo "${name}: Too many fields in the hidden service definition: ${hs}" >&2
+          echo_err "${nameb}: Too many fields in the hidden service definition: ${hs}"
           return 1
           ;;
       esac
       fidx=$((fidx+1))
     done
     if [ -z "${iface}" -o -z "${dir}" -o -z "${oport}" -o -z "${iport}" ]; then
-      echo "${name}: Too few fields in the hidden service definition: ${hs}" >&2
+      echo_err "${nameb}: Too few fields in the hidden service definition: ${hs}"
       return 1
     fi
     # fill hs info into global vars
@@ -406,7 +407,7 @@ start_tor_instance() {
   local cl="$4"
   # create dirs
   (mkdir -p "${dir}/data" && chown -R ${vm_to_tor_user}:${vm_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
-    ! echo_err "${name}: Failed to create ${dir}/data" || return 1
+    ! echo_err "${nameb}: Failed to create ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
   touch ${dir}/torrc && chown ${vm_to_tor_user}:${vm_to_tor_group} ${dir}/torrc && chmod 0600 ${dir}/torrc
   # prepare command line arguments
@@ -680,8 +681,8 @@ color_hs_name() {
 
 vm_to_tor_start() {
   # checks
-  is_user_authorized_with_msg "start ${name}" || return 1
-  [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo "Tor is not installed, $name can't start" || return 1
+  is_user_authorized_with_msg "start ${nameb}" || return 1
+  [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo_err "Tor is not installed, ${nameb} can't start" || return 1
   # start (every procedure below is responsible for printing its error messages if any)
   (
     create_dir &&
@@ -694,7 +695,7 @@ vm_to_tor_start() {
     start_daemons &&
     change_sysctl &&
     start_tor
-  ) || ! echo_err "Failed to start $name" || return 1
+  ) || ! echo_err "Failed to start $nameb" || return 1
 }
 
 vm_to_tor_status() {
@@ -760,18 +761,18 @@ vm_to_tor_status() {
     fi
   done
   if [ $cntNo = 0 ]; then
-    echo "$name is running with tunnels:${xnl}${msgOk}"
+    echo "$nameb is running with tunnels:${xnl}${msgOk}"
   elif [ $cntOk = 0 ]; then
-    echo "$name is not running (${vm_to_tor_ifaces})"
+    echo "$nameb is not running (${vm_to_tor_ifaces})"
     return 1
   else
-    echo "$name isn't properly setup: $cntNo of $((cntOk+cntNo)) tunnels doesn't exist (${vm_to_tor_ifaces})"
+    echo "$nameb isn't properly setup: $cntNo of $((cntOk+cntNo)) tunnels doesn't exist (${vm_to_tor_ifaces})"
     return 1
   fi
 }
 
 vm_to_tor_stop() {
-  is_user_authorized_with_msg "stop $name" || return 1
+  is_user_authorized_with_msg "stop $nameb" || return 1
   local fail=0
   parse_hs || fail=$((fail+1))
   delete_ipfw_rules "${vm_to_tor_ifaces}" || fail=$((fail+1))
@@ -779,7 +780,7 @@ vm_to_tor_stop() {
   destroy_tap || fail=$((fail+1))
   stop_tor || fail=$((fail+1))
   delete_dir || fail=$((fail+1))
-  [ $fail -eq 0 ] || ! echo_err "Failed to stop $name: $fail problems" || return 1
+  [ $fail -eq 0 ] || ! echo_err "Failed to stop $nameb: $fail problems" || return 1
 }
 
 command="/usr/bin/true"
