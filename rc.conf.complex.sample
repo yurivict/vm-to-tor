@@ -1,0 +1,27 @@
+#
+# Complex configuration file:
+# (1) connects 4 virtual machines (tap0 tap1 tap2 tap3) to TOR
+# (2) allows TOR routers administration (with vm-ctrl command)
+# (3) allows machines tap0 and tap1 to mount NFS disks on NFS server 192.168.1.2
+# (4) limits machine tap1 to use exit nodes in Germany and France only
+#
+# You probably need to adjust this configuration, depending on which features
+# you need, and which ones you don't need.
+#
+
+# add this line to /etc/rc.conf:
+# . /usr/local/etc/rc.conf.complex
+
+firewall_enable="YES"
+firewall_type="open"
+vm_to_tor_enable="YES"
+# (1) define which machines to support
+vm_to_tor_ifaces="tap0 tap1 tap2 tap3"
+# (2) allows TOR routers administration
+vm_to_tor_control_socket="YES"
+vm_to_tor_allow_cookie_auth="YES"
+# (3) allow NFS
+vm_to_tor_tap0_fw_allow_nfs="192.168.1.2"
+vm_to_tor_tap1_fw_allow_nfs="192.168.1.2"
+# (4) limit exit nodes
+vm_to_tor_tap1_tor_options="ExitNodes {de},{fr}"

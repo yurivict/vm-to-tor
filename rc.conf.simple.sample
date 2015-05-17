@@ -1,6 +1,6 @@
 #
-# Simple configuration file,
-# connects 2 virtual machines (tap0 tap1) to TOR
+# Simple configuration file:
+# * connects one virtual machine (tap0) to TOR
 #
 
 # add this line to /etc/rc.conf:
@@ -9,4 +9,3 @@
 firewall_enable="YES"
 firewall_type="open"
 vm_to_tor_enable="YES"
-vm_to_tor_ifaces="tap0 tap1"
