@@ -183,22 +183,33 @@ run_su() {
   su -m ${vm_to_tor_user} -c "$1"
 }
 
-set_file_perms() {
+set_file_perms_r() {
   chown ${vm_to_tor_user}:${vm_to_tor_group} "$1"
+  chmod 0400 "$1"
+}
+
+set_file_perms_rw() {
+  chown ${vm_to_tor_user}:${vm_to_tor_group} "$1"
+  chmod 0600 "$1"
+}
+
+set_file_perms_rwx() {
+  chown ${vm_to_tor_user}:${vm_to_tor_group} "$1"
+  chmod 0700 "$1"
 }
 
 save_daemon_cmd_file() {
   local cmd="$1"
   local dname="$2"
   echo "${cmd}" > ${tor_dir}/${dname}.cmd
-  set_file_perms ${tor_dir}/${dname}.cmd
+  set_file_perms_r ${tor_dir}/${dname}.cmd
 }
 
 ## major steps in init/fini
 
 create_dir() {
   rm -rf "${tor_dir}"
-  (mkdir "${tor_dir}" && set_file_perms "${tor_dir}" && chmod 600 "${tor_dir}") > /dev/null 2>&1
+  (mkdir "${tor_dir}" && set_file_perms_rwx "${tor_dir}") > /dev/null 2>&1
 }
 
 delete_dir() {
@@ -425,7 +436,7 @@ start_tor_instance() {
   (mkdir -p "${dir}/data" && chown -R ${vm_to_tor_user}:${vm_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
     ! echo_err "${nameb}: Failed to create ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
-  touch ${dir}/torrc && set_file_perms ${dir}/torrc && chmod 0600 ${dir}/torrc
+  touch ${dir}/torrc && set_file_perms_r ${dir}/torrc
   # prepare command line arguments
   local cmd="${LOCALBASE}/bin/tor"
   cmd="${cmd} -f ${dir}/torrc"
@@ -477,7 +488,7 @@ start_tor_instance() {
     [ $hidx -lt 2 ] && hidx=$((hidx+1)) || hidx=0
   done
   # log
-  touch ${dir}/cmd.log && set_file_perms ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
+  touch ${dir}/cmd.log && set_file_perms_r ${dir}/cmd.log
   echo "$(tm) ----- Running VM (tunnel $iface) -----" >> ${dir}/cmd.log
   echo "CMD: ${cmd}" >> ${dir}/cmd.log
   echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
@@ -489,7 +500,7 @@ start_tor_instance() {
 }
 
 start_tor_instances() {
-  (mkdir -p "${tor_dir}" && set_file_perms "${tor_dir}" && chmod 0700 "${tor_dir}") >/dev/null 2>&1 ||
+  (mkdir -p "${tor_dir}" && set_file_perms_rwx "${tor_dir}") >/dev/null 2>&1 ||
     ! echo_err "Failed to create ${tor_dir}" || return 1
   for iface in ${vm_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
