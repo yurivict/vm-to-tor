@@ -8,7 +8,7 @@
 # BEFORE: tor
 
 # Add the following lines to /etc/rc.conf to enable vm_to_tor:
-# vm_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: "NO"
+# vm_to_tor_enable (bool):	Set to "YES" to enable vm-to-tor. Default: "NO"
 # vm_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
 #                                 At least one interface is required.
 # vm_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
@@ -84,7 +84,7 @@ echo_err() {
 }
 
 tm() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')]"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')]"
 }
 
 is_user_authorized() {
