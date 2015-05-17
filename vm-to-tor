@@ -365,7 +365,7 @@ add_ipfw_rules() {
     ${fwcmd} add $((cmd+pidx+2)) divert $divert_port log udp from ${vm_gw} to ${vm_net} src-port 10053 out via $iface
     ${fwcmd} add $((cmd+pidx+3)) allow log udp from ${vm_net} to ${vm_gw} dst-port 10053 in via $iface
     ${fwcmd} add $((cmd+pidx+4)) allow log udp from ${vm_gw} to ${vm_net} src-port 53 out via $iface
-    set_per_vm_option ${iface} "dns_anti_nat_daemon_cmd" "${LOCALBASE}/bin/tiny-udp-anti-nat -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${tor_dir}/udp-anti-nat-${iface}.pid -l ${tor_dir}/udp-anti-nat-${iface}.log -D ${vm_gw}:$divert_port -P 53:10053"
+    set_per_vm_option ${iface} "dns_anti_nat_daemon_cmd" "${LOCALBASE}/bin/tiny-udp-anti-nat -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${tor_dir}/${iface}/udp-anti-nat.pid -l ${tor_dir}/${iface}/udp-anti-nat.log -D ${vm_gw}:$divert_port -P 53:10053"
 
     # DHCP: sink DHCP to server on gateway (DHCP requests can have both zero and non-zero source addresses)
     ${fwcmd} add $((cmd+pidx+5)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
@@ -419,9 +419,9 @@ start_daemons() {
   # anti-nat daemons
   for iface in ${vm_to_tor_ifaces}; do
     local cmd="$(get_per_vm_option ${iface} dns_anti_nat_daemon_cmd)"
-    start_daemon_and_check "${cmd}" ${tor_dir}/udp-anti-nat-${iface}.pid ||
+    start_daemon_and_check "${cmd}" ${tor_dir}/${iface}/udp-anti-nat.pid ||
       ! echo_err "Failed to start DNS anti-nat daemon for VM ${iface}" || return 1
-    save_daemon_cmd_file "${cmd}" udp-anti-nat-${iface}
+    save_daemon_cmd_file "${cmd}" "${iface}/udp-anti-nat"
   done
 }
 
@@ -429,7 +429,7 @@ stop_daemons() {
   stop_daemon "${tor_dir}/dhcp-daemon.pid" ||
     ! echo_err "Failed to stop DHCP daemon" || return 1
   for iface in ${vm_to_tor_ifaces}; do
-    stop_daemon "${tor_dir}/udp-anti-nat-${iface}.pid" ||
+    stop_daemon "${tor_dir}/${iface}/udp-anti-nat.pid" ||
       ! echo_err "Failed to stop DNS anti-nat daemon for VM ${iface}" || return 1
   done
 }
