@@ -325,8 +325,6 @@ change_sysctl() {
 }
 
 add_ipfw_rules() {
-  local ifaces="$1"
-  local net_pattern="$2"
   local cmd=$vm_to_tor_rule_base
   local step=$(calc_rule_step)
   local port
@@ -335,10 +333,10 @@ add_ipfw_rules() {
   local nfs_mountd_port
   nfs_mountd_port=$(nfs_mountd_actual_port) || return 1
 
-  for iface in $ifaces; do
+  for iface in ${vm_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
-    local vm_net="${net_pattern}.${vm_id}.0/24"
-    local vm_gw="${net_pattern}.${vm_id}.1"
+    local vm_net="${vm_to_tor_net_pattern}.${vm_id}.0/24"
+    local vm_gw="${vm_to_tor_net_pattern}.${vm_id}.1"
 
     # rule sub-index
     local pidx=0
@@ -601,11 +599,10 @@ delete_tor_config_section() {
 }
 
 delete_ipfw_rules() {
-  local ifaces="$1"
   local cmd=$vm_to_tor_rule_base
   local step=$(calc_rule_step)
   local fwcmd="/sbin/ipfw -q"
-  for iface in $ifaces; do
+  for iface in ${vm_to_tor_ifaces}; do
     ${fwcmd} delete $(jot - $cmd $((cmd+step-1))) 2>/dev/null
     cmd=$((cmd+step))
   done
@@ -722,7 +719,7 @@ vm_to_tor_start() {
     ensure_kmod_loaded "if_tap" &&
     ensure_kmod_loaded "ipfw" &&
     create_tap &&
-    add_ipfw_rules "${vm_to_tor_ifaces}" "$vm_to_tor_net_pattern" &&
+    add_ipfw_rules &&
     start_daemons &&
     change_sysctl &&
     start_tor
@@ -806,7 +803,7 @@ vm_to_tor_stop() {
   is_user_authorized_with_msg "stop $nameb" || return 1
   local fail=0
   parse_hs || fail=$((fail+1))
-  delete_ipfw_rules "${vm_to_tor_ifaces}" || fail=$((fail+1))
+  delete_ipfw_rules || fail=$((fail+1))
   stop_daemons || fail=$((fail+1))
   destroy_tap || fail=$((fail+1))
   stop_tor || fail=$((fail+1))
