@@ -430,7 +430,7 @@ start_daemons() {
   # DHCP daemon
   local cmd="${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vm_to_tor_ifaces}"
   start_daemon_and_check "${cmd}" "${dir}/dhcp-daemon.pid" ||
-    ! echo_err "Failed to start DHCP daemon" || return 1
+    ! echo_err "Failed to start dhcp daemon" || return 1
   save_daemon_cmd_file "${cmd}" dhcp-daemon
 
   # anti-nat daemons
@@ -444,7 +444,7 @@ start_daemons() {
 
 stop_daemons() {
   stop_daemon "${tor_dir}/dhcp-daemon.pid" ||
-    ! echo_err "Failed to stop DHCP daemon" || return 1
+    ! echo_err "Failed to stop dhcp daemon" || return 1
   for iface in ${vm_to_tor_ifaces}; do
     stop_daemon "${tor_dir}/${iface}/udp-anti-nat.pid" ||
       ! echo_err "Failed to stop DNS anti-nat daemon for VM ${iface}" || return 1
