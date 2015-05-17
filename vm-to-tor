@@ -2,36 +2,36 @@
 
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 
-# PROVIDE: vbox_to_tor
+# PROVIDE: vm_to_tor
 # REQUIRE: LOGIN ipfw
 # KEYWORD: shutdown
 # BEFORE: tor
 
-# Add the following lines to /etc/rc.conf to enable vbox_to_tor:
-# vbox_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: "NO"
-# vbox_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
+# Add the following lines to /etc/rc.conf to enable vm_to_tor:
+# vm_to_tor_enable (bool):	Set to "YES" to enable dhcp. Default: "NO"
+# vm_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
 #                                 At least one interface is required.
-# vbox_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
-# vbox_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
-# vbox_to_tor_extra_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
-# vbox_to_tor_control_socket (bool):	Set it to "YES" to allow host administration using ControlSocket. Default: "NO"
-# vbox_to_tor_allow_cookie_auth (bool):	Set it to "YES" to allow cookie administration on ControlSocket. Default: "NO"
-# vbox_to_tor_use_base (bool):	Set it to "YES" to use central tor daemon on host. Default: "NO"
+# vm_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
+# vm_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
+# vm_to_tor_extra_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
+# vm_to_tor_control_socket (bool):	Set it to "YES" to allow host administration using ControlSocket. Default: "NO"
+# vm_to_tor_allow_cookie_auth (bool):	Set it to "YES" to allow cookie administration on ControlSocket. Default: "NO"
+# vm_to_tor_use_base (bool):	Set it to "YES" to use central tor daemon on host. Default: "NO"
 #                                 By default individual tor instance is launched per interface.
 #                                 Choosing "YES" requires less resources, but is marginally less secure.
-#                                 It requires tor service to run, but it should start after vbox-to-tor.
-# vbox_to_tor_hs (str):		Set it to the list of hidden services to route to VMs. Default: ""
+#                                 It requires tor service to run, but it should start after vm-to-tor.
+# vm_to_tor_hs (str):		Set it to the list of hidden services to route to VMs. Default: ""
 #                                 List is 'newline' or '|' separarated.
 #                                 Every element represents the hidden service in the format:
 #                                   tapN /dir/to/hs/ oport iport
-# vbox_to_tor_user (str):	Set it to the user name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
-# vbox_to_tor_group (str):	Set it to the group name that vbox-to-tor uses. Should be the same that tor uses. Default: "_tor"
-# vbox_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
-# vbox_to_tor_fw_rule_gap (uint):Setting the positive value makes vbox-to-tor leave that many available ipfw rules for every VM.
+# vm_to_tor_user (str):	Set it to the user name that vm-to-tor uses. Should be the same that tor uses. Default: "_tor"
+# vm_to_tor_group (str):	Set it to the group name that vm-to-tor uses. Should be the same that tor uses. Default: "_tor"
+# vm_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
+# vm_to_tor_fw_rule_gap (uint):Setting the positive value makes vm-to-tor leave that many available ipfw rules for every VM.
 #                                This is to allow an expecrt user to add any extra-rules per VM. Default: "0"
 # ## per-VM options
-# vbox_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
-# vbox_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
+# vm_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
+# vm_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
 #
 
 #
@@ -43,18 +43,18 @@
 
 . /etc/rc.subr
 
-name=vbox_to_tor
-rcvar=vbox_to_tor_enable
-start_cmd="vbox_to_tor_start"
-stop_cmd="vbox_to_tor_stop"
-status_cmd="vbox_to_tor_status"
+name=vm_to_tor
+rcvar=vm_to_tor_enable
+start_cmd="vm_to_tor_start"
+stop_cmd="vm_to_tor_stop"
+status_cmd="vm_to_tor_status"
 
 : ${LOCALBASE="/usr/local"}
 
 # signature that will be placed into torrc to later be able to find our lines
 torrc_signature="VBoxToTOR"
 # where all tors data dirs are
-tor_dir=/var/tmp/vbox-to-tor
+tor_dir=/var/tmp/vm-to-tor
 tor_conf=${LOCALBASE}/etc/tor/torrc
 # consts
 NL=$'\n'
@@ -63,19 +63,19 @@ nfs_ports="111 1110 2049 4045" # 111=portmap 1110=nfsd-status/nfsd-keepalive 204
 
 load_rc_config ${name}
 
-: ${vbox_to_tor_enable="NO"}
-: ${vbox_to_tor_ifaces="tap0"}
-: ${vbox_to_tor_net_pattern="172.16"}
-: ${vbox_to_tor_rule_base="3000"}
-: ${vbox_to_tor_extra_ports=""}
-: ${vbox_to_tor_control_socket="NO"}
-: ${vbox_to_tor_allow_cookie_auth="NO"}
-: ${vbox_to_tor_use_base="NO"}
-: ${vbox_to_tor_hs=""}
-: ${vbox_to_tor_user="_tor"}
-: ${vbox_to_tor_group="_tor"}
-: ${vbox_to_tor_show_colors="YES"}
-: ${vbox_to_tor_fw_rule_gap="0"}
+: ${vm_to_tor_enable="NO"}
+: ${vm_to_tor_ifaces="tap0"}
+: ${vm_to_tor_net_pattern="172.16"}
+: ${vm_to_tor_rule_base="3000"}
+: ${vm_to_tor_extra_ports=""}
+: ${vm_to_tor_control_socket="NO"}
+: ${vm_to_tor_allow_cookie_auth="NO"}
+: ${vm_to_tor_use_base="NO"}
+: ${vm_to_tor_hs=""}
+: ${vm_to_tor_user="_tor"}
+: ${vm_to_tor_group="_tor"}
+: ${vm_to_tor_show_colors="YES"}
+: ${vm_to_tor_fw_rule_gap="0"}
 
 ## internals
 
@@ -88,11 +88,11 @@ tm() {
 }
 
 is_user_authorized() {
-  [ $(id -u) = 0 -o $(id -un) = ${vbox_to_tor_user} ] || return 1
+  [ $(id -u) = 0 -o $(id -un) = ${vm_to_tor_user} ] || return 1
 }
 
 is_user_authorized_with_msg() {
-  is_user_authorized || ! echo "Only root and ${vbox_to_tor_user} can $1" >&2 || return 1
+  is_user_authorized || ! echo "Only root and ${vm_to_tor_user} can $1" >&2 || return 1
 }
 
 is_tor_installed() {
@@ -100,20 +100,20 @@ is_tor_installed() {
 }
 
 get_per_vm_option() {
-  eval echo "\"\$vbox_to_tor_${1}_${2}\""
+  eval echo "\"\$vm_to_tor_${1}_${2}\""
 }
 
 set_per_vm_option() {
-  eval "vbox_to_tor_${1}_${2}=\"${3}\""
+  eval "vm_to_tor_${1}_${2}=\"${3}\""
 }
 
 unique_port_set() {
-  echo $vbox_to_tor_extra_ports $vbox_to_tor_hs_all_iports | tr " ${TAB}" '\n' | sort | uniq
+  echo $vm_to_tor_extra_ports $vm_to_tor_hs_all_iports | tr " ${TAB}" '\n' | sort | uniq
 }
 
 unique_port_set_for_iface() {
   # eliminate port 22 here, I would rather keep 22 as a separate line in ipfw section to keep it explicit
-  eval "echo \$vbox_to_tor_extra_ports \$vbox_to_tor_hs_${1}_iports | tr \" \${TAB}\" '\\n' | sort | uniq | grep -v ^22\$"
+  eval "echo \$vm_to_tor_extra_ports \$vm_to_tor_hs_${1}_iports | tr \" \${TAB}\" '\\n' | sort | uniq | grep -v ^22\$"
 }
 
 lst_size() {
@@ -130,7 +130,7 @@ lst_uniquify() {
 
 calc_max_nfs_hosts_needed() {
   local max=0
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     local cnt=$(lst_size "$(get_per_vm_option ${iface} fw_allow_nfs)")
     if [ $cnt -gt $max ]; then
       max=$cnt
@@ -163,7 +163,7 @@ calc_rule_step() {
   # add extra ports and HS ports requested by the user (they are added together in add_ipfw_rules too)
   cnt=$((cnt+$(lst_size "$(unique_port_set)")))
   # add the gap if requested by user
-  cnt=$((cnt+${vbox_to_tor_fw_rule_gap}))
+  cnt=$((cnt+${vm_to_tor_fw_rule_gap}))
   # add deny-all rule
   cnt=$((cnt+1))
   # pick the round number closest to needed
@@ -178,14 +178,14 @@ calc_rule_step() {
 }
 
 run_su() {
-  su -m ${vbox_to_tor_user} -c "$1"
+  su -m ${vm_to_tor_user} -c "$1"
 }
 
 ## major steps in init/fini
 
 create_dir() {
   rm -rf "${tor_dir}"
-  (mkdir "${tor_dir}" && chown ${vbox_to_tor_user}:${vbox_to_tor_group} "${tor_dir}" && chmod 600 "${tor_dir}") > /dev/null 2>&1
+  (mkdir "${tor_dir}" && chown ${vm_to_tor_user}:${vm_to_tor_group} "${tor_dir}" && chmod 600 "${tor_dir}") > /dev/null 2>&1
 }
 
 delete_dir() {
@@ -211,7 +211,7 @@ ensure_kmod_loaded() {
 parse_hs() {
   # parse HS definitions, if any
   local IFS="${NL}|"
-  for hs in ${vbox_to_tor_hs}; do
+  for hs in ${vm_to_tor_hs}; do
     if [ -z "${hs}" ]; then
       continue
     fi
@@ -244,11 +244,11 @@ parse_hs() {
       return 1
     fi
     # fill hs info into global vars
-    eval "vbox_to_tor_hs_${iface}=\"\$vbox_to_tor_hs_${iface} ${dir} ${oport} ${iport}\""
-    eval "vbox_to_tor_hs_${iface}_iports=\"\$vbox_to_tor_hs_${iface}_iports ${iport}\""
-    eval "vbox_to_tor_hs_all_iports=\"\$vbox_to_tor_hs_all_iports ${iport}\""
+    eval "vm_to_tor_hs_${iface}=\"\$vm_to_tor_hs_${iface} ${dir} ${oport} ${iport}\""
+    eval "vm_to_tor_hs_${iface}_iports=\"\$vm_to_tor_hs_${iface}_iports ${iport}\""
+    eval "vm_to_tor_hs_all_iports=\"\$vm_to_tor_hs_all_iports ${iport}\""
   done
-  vbox_to_tor_hs_all_iports=$(lst_uniquify "${vbox_to_tor_hs_all_iports}")
+  vm_to_tor_hs_all_iports=$(lst_uniquify "${vm_to_tor_hs_all_iports}")
 }
 
 check_process_by_pid_file() {
@@ -258,11 +258,11 @@ check_process_by_pid_file() {
 }
 
 create_tap() {
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
     if !(ifconfig $iface create && \
          ifconfig $iface up && \
-         ifconfig $iface inet "${vbox_to_tor_net_pattern}.${vm_id}.1/24" && \
+         ifconfig $iface inet "${vm_to_tor_net_pattern}.${vm_id}.1/24" && \
          chown root:vboxusers /dev/$iface && \
          chmod 0660 /dev/$iface) >/dev/null 2>/dev/null; then
       echo_err "Failed to create interface $iface"
@@ -273,7 +273,7 @@ create_tap() {
 }
 
 destroy_tap() {
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     if ! ifconfig $iface destroy >/dev/null 2>/dev/null; then
       echo_err "Failed to destroy interface $iface"
       destroy_tap_silent
@@ -283,7 +283,7 @@ destroy_tap() {
 }
 
 destroy_tap_silent() {
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     ifconfig $iface destroy >/dev/null 2>/dev/null
   done
 }
@@ -296,7 +296,7 @@ change_sysctl() {
 add_ipfw_rules() {
   local ifaces="$1"
   local net_pattern="$2"
-  local cmd=$vbox_to_tor_rule_base
+  local cmd=$vm_to_tor_rule_base
   local step=$(calc_rule_step)
   local port
   local fwcmd="/sbin/ipfw -q"
@@ -334,7 +334,7 @@ add_ipfw_rules() {
     ${fwcmd} add $((cmd+pidx+2)) divert $divert_port log udp from ${vm_gw} to ${vm_net} src-port 10053 out via $iface
     ${fwcmd} add $((cmd+pidx+3)) allow log udp from ${vm_net} to ${vm_gw} dst-port 10053 in via $iface
     ${fwcmd} add $((cmd+pidx+4)) allow log udp from ${vm_gw} to ${vm_net} src-port 53 out via $iface
-    set_per_vm_option ${iface} "dns_anti_nat_daemon_cmd" "${LOCALBASE}/bin/tiny-udp-anti-nat -d -U ${vbox_to_tor_user}:${vbox_to_tor_group} -p ${tor_dir}/udp-anti-nat-${iface}.pid -l ${tor_dir}/udp-anti-nat-${iface}.log -D ${vm_gw}:$divert_port -P 53:10053"
+    set_per_vm_option ${iface} "dns_anti_nat_daemon_cmd" "${LOCALBASE}/bin/tiny-udp-anti-nat -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${tor_dir}/udp-anti-nat-${iface}.pid -l ${tor_dir}/udp-anti-nat-${iface}.log -D ${vm_gw}:$divert_port -P 53:10053"
 
     # DHCP: sink DHCP to server on gateway (DHCP requests can have both zero and non-zero source addresses)
     ${fwcmd} add $((cmd+pidx+5)) fwd ${vm_gw} udp from 0.0.0.0 to 255.255.255.255 67 in via $iface
@@ -380,10 +380,10 @@ stop_daemon() {
 start_daemons() {
   local dir="${tor_dir}"
   # DHCP daemon
-  start_daemon_and_check "${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vbox_to_tor_user}:${vbox_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vbox_to_tor_ifaces}" "${dir}/dhcp-daemon.pid" ||
+  start_daemon_and_check "${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vm_to_tor_ifaces}" "${dir}/dhcp-daemon.pid" ||
     ! echo_err "Failed to start DHCP daemon" || return 1
 
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     start_daemon_and_check "$(get_per_vm_option ${iface} dns_anti_nat_daemon_cmd)" ${tor_dir}/udp-anti-nat-${iface}.pid ||
       ! echo_err "Failed to start DNS anti-nat daemon for VM ${iface}" || return 1
   done
@@ -392,7 +392,7 @@ start_daemons() {
 stop_daemons() {
   stop_daemon "${tor_dir}/dhcp-daemon.pid" ||
     ! echo_err "Failed to stop DHCP daemon" || return 1
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     stop_daemon "${tor_dir}/udp-anti-nat-${iface}.pid" ||
       ! echo_err "Failed to stop DNS anti-nat daemon for VM ${iface}" || return 1
   done
@@ -404,10 +404,10 @@ start_tor_instance() {
   local gw="$3"
   local cl="$4"
   # create dirs
-  (mkdir -p "${dir}/data" && chown -R ${vbox_to_tor_user}:${vbox_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
+  (mkdir -p "${dir}/data" && chown -R ${vm_to_tor_user}:${vm_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
     ! echo_err "${name}: Failed to create ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
-  touch ${dir}/torrc && chown ${vbox_to_tor_user}:${vbox_to_tor_group} ${dir}/torrc && chmod 0600 ${dir}/torrc
+  touch ${dir}/torrc && chown ${vm_to_tor_user}:${vm_to_tor_group} ${dir}/torrc && chmod 0600 ${dir}/torrc
   # prepare command line arguments
   local cmd="${LOCALBASE}/bin/tor"
   cmd="${cmd} -f ${dir}/torrc"
@@ -421,7 +421,7 @@ start_tor_instance() {
   cmd="${cmd} --TransPort 9030"
   cmd="${cmd} --TransListenAddress ${gw}"
   cmd="${cmd} --SocksPort 0"
-  if [ "${vbox_to_tor_control_socket}" = "YES" ]; then
+  if [ "${vm_to_tor_control_socket}" = "YES" ]; then
     cmd="${cmd} --ControlSocket ${dir}/ctrl"
     cmd="${cmd} --CookieAuthentication 1"
   fi
@@ -442,7 +442,7 @@ start_tor_instance() {
   # add hidden services that were requested
   local hidx=0
   local hs_fld hs_dir hs_oport hs_iport
-  for hs_fld in $(eval "echo \$vbox_to_tor_hs_${iface}"); do
+  for hs_fld in $(eval "echo \$vm_to_tor_hs_${iface}"); do
     case $hidx in
       0)
         hs_dir=${hs_fld}
@@ -459,7 +459,7 @@ start_tor_instance() {
     [ $hidx -lt 2 ] && hidx=$((hidx+1)) || hidx=0
   done
   # log
-  touch ${dir}/cmd.log && chown ${vbox_to_tor_user}:${vbox_to_tor_group} ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
+  touch ${dir}/cmd.log && chown ${vm_to_tor_user}:${vm_to_tor_group} ${dir}/cmd.log && chmod 0600 ${dir}/cmd.log
   echo "$(tm) ----- Running VM (tunnel $iface) -----" >> ${dir}/cmd.log
   echo "CMD: ${cmd}" >> ${dir}/cmd.log
   echo "$(tm) ----- BEGIN OUTPUT (tunnel $iface) -----" >> ${dir}/cmd.log
@@ -471,12 +471,12 @@ start_tor_instance() {
 }
 
 start_tor_instances() {
-  (mkdir -p "${tor_dir}" && chown ${vbox_to_tor_user}:${vbox_to_tor_group} "${tor_dir}" && chmod 0700 "${tor_dir}") >/dev/null 2>&1 ||
+  (mkdir -p "${tor_dir}" && chown ${vm_to_tor_user}:${vm_to_tor_group} "${tor_dir}" && chmod 0700 "${tor_dir}") >/dev/null 2>&1 ||
     ! echo_err "Failed to create ${tor_dir}" || return 1
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
-    local vm_gw="${vbox_to_tor_net_pattern}.${vm_id}.1"
-    local vm_cl="${vbox_to_tor_net_pattern}.${vm_id}.2"
+    local vm_gw="${vm_to_tor_net_pattern}.${vm_id}.1"
+    local vm_cl="${vm_to_tor_net_pattern}.${vm_id}.2"
 
     start_tor_instance "${iface}" "${tor_dir}/$iface" "${vm_gw}" "${vm_cl}" ||
       ! echo_err "Failed to start tor instance for VM $iface" || stop_tor_instances_silent || return 1
@@ -484,7 +484,7 @@ start_tor_instances() {
 }
 
 stop_tor_instances() {
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     ([ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid)) ||
        ! echo_err "Failed to stop tor instance for VM $iface" || ! stop_tor_instances_silent || return 1
     # XXX check the correctness of the above
@@ -492,7 +492,7 @@ stop_tor_instances() {
 }
 
 stop_tor_instances_silent() {
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     [ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid) >/dev/null 2>/dev/null
   done
   # emergency stop, something went wrong, so keep logs
@@ -501,46 +501,46 @@ stop_tor_instances_silent() {
 
 start_tor() {
   (
-    ([ ${vbox_to_tor_use_base} = "YES" ] && write_tor_config_section) ||
-    ([ ${vbox_to_tor_use_base} = "NO" ] && start_tor_instances)
+    ([ ${vm_to_tor_use_base} = "YES" ] && write_tor_config_section) ||
+    ([ ${vm_to_tor_use_base} = "NO" ] && start_tor_instances)
   ) || return 1
 }
 
 stop_tor() {
   (
-    ([ ${vbox_to_tor_use_base} = "YES" ] && delete_tor_config_section) ||
-    ([ ${vbox_to_tor_use_base} = "NO" ] && stop_tor_instances)
+    ([ ${vm_to_tor_use_base} = "YES" ] && delete_tor_config_section) ||
+    ([ ${vm_to_tor_use_base} = "NO" ] && stop_tor_instances)
   ) || return 1
 }
 
 warn_to_restart_tor_if_running() {
   if [ -r /var/run/tor/tor.pid ] && procstat $(cat /var/run/tor/tor.pid) > /dev/null 2>/dev/null; then
-    echo "WARNING vbox-to-tor changed tor configuration, you need to restart tor: 'service tor restart'"
+    echo "WARNING vm-to-tor changed tor configuration, you need to restart tor: 'service tor restart'"
   fi
 }
 
 write_tor_config_section() {
   # The "right" way of doing this is through Tor control port.
   # However, this requires authentication, and we don't have
-  # the password. vbox-to-tor is an automated process, and has
+  # the password. vm-to-tor is an automated process, and has
   # to always succeed. So we just overwrite that file in the
   # old fashion way. We add our signature to every line, so
   # that we can always delete these lines when we are stopped.
   # See torproject ticket#15649 with the request for this
   # functionality
 
-  local conf_tmp_old="${tor_conf}.vbox-to-tor.old.tmp"
-  local conf_tmp_new="${tor_conf}.vbox-to-tor.new.tmp"
+  local conf_tmp_old="${tor_conf}.vm-to-tor.old.tmp"
+  local conf_tmp_new="${tor_conf}.vm-to-tor.new.tmp"
 
   rm -f $conf_tmp_new $conf_tmp_old &&
   (cat $tor_conf &&
-   echo "# [$torrc_signature] BEGIN vbox-to-tor section" &&
-   (for iface in ${vbox_to_tor_ifaces}; do
+   echo "# [$torrc_signature] BEGIN vm-to-tor section" &&
+   (for iface in ${vm_to_tor_ifaces}; do
       local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
       echo "DNSListenAddress   172.16.${vm_id}.1    # $torrc_signature"
       echo "TransListenAddress 172.16.${vm_id}.1    # $torrc_signature"
     done) &&
-   echo "# [$torrc_signature] END vbox-to-tor section") > $conf_tmp_new
+   echo "# [$torrc_signature] END vm-to-tor section") > $conf_tmp_new
   if [ $? = 0 -a -f $conf_tmp_new ]; then
     mv $tor_conf $conf_tmp_old &&
     mv $conf_tmp_new $tor_conf &&
@@ -552,8 +552,8 @@ write_tor_config_section() {
 }
 
 delete_tor_config_section() {
-  local conf_tmp_old="${tor_conf}.vbox-to-tor.old.tmp"
-  local conf_tmp_new="${tor_conf}.vbox-to-tor.new.tmp"
+  local conf_tmp_old="${tor_conf}.vm-to-tor.old.tmp"
+  local conf_tmp_new="${tor_conf}.vm-to-tor.new.tmp"
 
   rm -f $conf_tmp_new $conf_tmp_old &&
   (cat $tor_conf | grep -v $torrc_signature) > $conf_tmp_new
@@ -569,7 +569,7 @@ delete_tor_config_section() {
 
 delete_ipfw_rules() {
   local ifaces="$1"
-  local cmd=$vbox_to_tor_rule_base
+  local cmd=$vm_to_tor_rule_base
   local step=$(calc_rule_step)
   local fwcmd="/sbin/ipfw -q"
   for iface in $ifaces; do
@@ -588,7 +588,7 @@ guess_process_name() {
 count_tunnels() {
   local cnt=0
   local iface
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     cnt=$((cnt+1))
   done
   echo $cnt
@@ -600,7 +600,7 @@ print_hs_for_iface() {
   local hidx=0
   local hs_fld hs_dir hs_oport hs_iport
   local cnt=0
-  for hs_fld in $(eval "echo \$vbox_to_tor_hs_${iface}"); do
+  for hs_fld in $(eval "echo \$vm_to_tor_hs_${iface}"); do
     case $hidx in
       0)
         hs_dir=${hs_fld}
@@ -644,7 +644,7 @@ Whi='\e[0;37m';     BWhi='\e[1;37m';    UWhi='\e[4;37m';    IWhi='\e[0;97m';    
 color_os_name() {
   local os_name="$1"
   local do_colors="$2"
-  if [ ${vbox_to_tor_show_colors} = "YES" -a ${do_colors} = 1 ]; then
+  if [ ${vm_to_tor_show_colors} = "YES" -a ${do_colors} = 1 ]; then
     if expr "${os_name}" : "FreeBSD" > /dev/null; then
       echo -e "${Gre}${os_name}${RCol}"
     elif expr "${os_name}" : "Arch" > /dev/null; then
@@ -668,7 +668,7 @@ color_os_name() {
 color_hs_name() {
   local hs_name="$1"
   local do_colors="$2"
-  if [ ${vbox_to_tor_show_colors} = "YES" -a ${do_colors} = 1 ]; then
+  if [ ${vm_to_tor_show_colors} = "YES" -a ${do_colors} = 1 ]; then
     echo -e "${URed}${hs_name}${RCol}"
   else
     echo "${hs_name}"
@@ -677,26 +677,26 @@ color_hs_name() {
 
 ## interface: for service manager
 
-vbox_to_tor_start() {
+vm_to_tor_start() {
   # checks
   is_user_authorized_with_msg "start ${name}" || return 1
-  [ ${vbox_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo "Tor is not installed, $name can't start" || return 1
+  [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo "Tor is not installed, $name can't start" || return 1
   # start (every procedure below is responsible for printing its error messages if any)
   (
     create_dir &&
     parse_hs &&
-    ([ ${vbox_to_tor_use_base} = "NO" ] || check_tor_config) &&
+    ([ ${vm_to_tor_use_base} = "NO" ] || check_tor_config) &&
     ensure_kmod_loaded "if_tap" &&
     ensure_kmod_loaded "ipfw" &&
     create_tap &&
-    add_ipfw_rules "${vbox_to_tor_ifaces}" "$vbox_to_tor_net_pattern" &&
+    add_ipfw_rules "${vm_to_tor_ifaces}" "$vm_to_tor_net_pattern" &&
     start_daemons &&
     change_sysctl &&
     start_tor
   ) || ! echo_err "Failed to start $name" || return 1
 }
 
-vbox_to_tor_status() {
+vm_to_tor_status() {
   parse_hs || return 1
   local cntOk=0
   local cntNo=0
@@ -717,7 +717,7 @@ vbox_to_tor_status() {
     local xlt="("
     local xrt=")"
   fi
-  for iface in ${vbox_to_tor_ifaces}; do
+  for iface in ${vm_to_tor_ifaces}; do
     if ! (ls /dev/ | grep $iface >/dev/null 2>/dev/null); then
       cntNo=$((cntNo+1))
       if [ $cntNo -gt 1 ]; then
@@ -737,7 +737,7 @@ vbox_to_tor_status() {
         fi
       fi
       # tor pid
-      if [ ${vbox_to_tor_use_base} = "NO" ]; then
+      if [ ${vm_to_tor_use_base} = "NO" ]; then
         if [ -n "${descr}" ]; then
           descr="${descr} "
         fi
@@ -761,19 +761,19 @@ vbox_to_tor_status() {
   if [ $cntNo = 0 ]; then
     echo "$name is running with tunnels:${xnl}${msgOk}"
   elif [ $cntOk = 0 ]; then
-    echo "$name is not running (${vbox_to_tor_ifaces})"
+    echo "$name is not running (${vm_to_tor_ifaces})"
     return 1
   else
-    echo "$name isn't properly setup: $cntNo of $((cntOk+cntNo)) tunnels doesn't exist (${vbox_to_tor_ifaces})"
+    echo "$name isn't properly setup: $cntNo of $((cntOk+cntNo)) tunnels doesn't exist (${vm_to_tor_ifaces})"
     return 1
   fi
 }
 
-vbox_to_tor_stop() {
+vm_to_tor_stop() {
   is_user_authorized_with_msg "stop $name" || return 1
   local fail=0
   parse_hs || fail=$((fail+1))
-  delete_ipfw_rules "${vbox_to_tor_ifaces}" || fail=$((fail+1))
+  delete_ipfw_rules "${vm_to_tor_ifaces}" || fail=$((fail+1))
   stop_daemons || fail=$((fail+1))
   destroy_tap || fail=$((fail+1))
   stop_tor || fail=$((fail+1))

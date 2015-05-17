@@ -3,13 +3,13 @@
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 
 ###
-### This is the telnet-like application to control the vbox-to-tor
+### This is the telnet-like application to control the vm-to-tor
 ### virtual machine.
 ### It expects the virtual machine name in the form tapN.
-### It can only run when vbox-to-tor was started with the following
+### It can only run when vm-to-tor was started with the following
 ### parameters set in /etc/rc.conf:
-### * vbox_to_tor_control_socket="YES"
-### * vbox_to_tor_allow_cookie_auth="YES"
+### * vm_to_tor_control_socket="YES"
+### * vm_to_tor_allow_cookie_auth="YES"
 ###
 
 ## check usage and extract command line arguments
@@ -30,7 +30,7 @@ fi
 
 ## directory base of the VM, check that virtual machine exists
 
-VM_DIR=/var/tmp/vbox-to-tor/${VM}
+VM_DIR=/var/tmp/vm-to-tor/${VM}
 
 if [ ! -d "${VM_DIR}" ]; then
   echo "Virtual machine $VM not found" 2>&1
