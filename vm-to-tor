@@ -97,6 +97,25 @@ is_user_authorized_with_msg() {
   is_user_authorized || ! echo_err "Only root and ${vm_to_tor_user} can $1" || return 1
 }
 
+ck_iface_exists() {
+  ifconfig $1 >/dev/null 2>&1
+}
+
+are_any_processes_running_with_msg() {
+  [ -d ${tor_dir} ] || return 0
+  local msg=""
+  # dhcp daemon
+  ! check_process_by_pid_file "${tor_dir}/dhcp-daemon.pid" || msg="${msg}* dhcp daemon pid=$(cat ${tor_dir}/dhcp-daemon.pid)${NL}"
+  # interfaces, tor processes, anti-nat daemons
+  for iface in ${vm_to_tor_ifaces}; do
+    ! ck_iface_exists $iface || msg="${msg}* ${iface} network interface${NL}"
+    ! check_process_by_pid_file "${tor_dir}/${iface}/tor.pid" || msg="${msg}* tor pid=$(cat ${tor_dir}/${iface}/tor.pid)${NL}"
+    ! check_process_by_pid_file "${tor_dir}/${iface}/udp-anti-nat.pid" || msg="${msg}* udp anti-nat pid=$(cat ${tor_dir}/${iface}/udp-anti-nat.pid)${NL}"
+  done
+  # output
+  [ -n "$msg" ] && echo_err "Can't start because essential elements are alive:${NL}${msg}Did you forget to stop ${nameb}? Is there the configuration problem?" && return 1
+}
+
 is_tor_installed() {
   [ -x ${LOCALBASE}/bin/tor ] || return 1
 }
@@ -710,7 +729,8 @@ color_hs_name() {
 vm_to_tor_start() {
   # checks
   is_user_authorized_with_msg "start ${nameb}" || return 1
-  [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo_err "Tor is not installed, ${nameb} can't start" || return 1
+  are_any_processes_running_with_msg || return 1
+  [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo_err "Tor is not installed, ${nameb} can't be started" || return 1
   # start (every procedure below is responsible for printing its error messages if any)
   (
     create_dirs &&
