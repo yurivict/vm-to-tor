@@ -205,11 +205,18 @@ save_daemon_cmd_file() {
   set_file_perms_r ${tor_dir}/${dname}.cmd
 }
 
+mkdir_perms() {
+  (mkdir "${1}" && set_file_perms_rwx "${1}") > /dev/null 2>&1
+}
+
 ## major steps in init/fini
 
-create_dir() {
+create_dirs() {
   rm -rf "${tor_dir}"
-  (mkdir "${tor_dir}" && set_file_perms_rwx "${tor_dir}") > /dev/null 2>&1
+  mkdir_perms "${tor_dir}" || ! echo_err "Failed to create work dir ${tor_dir}" || return 1
+  for iface in ${vm_to_tor_ifaces}; do
+    mkdir_perms "${tor_dir}/${iface}" || ! echo_err "Failed to create work dir ${tor_dir}/${iface}" || return 1
+  done
 }
 
 delete_dir() {
@@ -432,9 +439,8 @@ start_tor_instance() {
   local dir="$2"
   local gw="$3"
   local cl="$4"
-  # create dirs
-  (mkdir -p "${dir}/data" && chown -R ${vm_to_tor_user}:${vm_to_tor_group} "${dir}" && chmod -R 0700 "${dir}") ||
-    ! echo_err "${nameb}: Failed to create ${dir}/data" || return 1
+  # create tor data dir
+  mkdir_perms "${dir}/data" || ! echo_err "Failed to create tor data dir ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
   touch ${dir}/torrc && set_file_perms_r ${dir}/torrc
   # prepare command line arguments
@@ -500,8 +506,6 @@ start_tor_instance() {
 }
 
 start_tor_instances() {
-  (mkdir -p "${tor_dir}" && set_file_perms_rwx "${tor_dir}") >/dev/null 2>&1 ||
-    ! echo_err "Failed to create ${tor_dir}" || return 1
   for iface in ${vm_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
     local vm_gw="${vm_to_tor_net_pattern}.${vm_id}.1"
@@ -712,7 +716,7 @@ vm_to_tor_start() {
   [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo_err "Tor is not installed, ${nameb} can't start" || return 1
   # start (every procedure below is responsible for printing its error messages if any)
   (
-    create_dir &&
+    create_dirs &&
     parse_hs &&
     ([ ${vm_to_tor_use_base} = "NO" ] || check_tor_config) &&
     ensure_kmod_loaded "if_tap" &&
