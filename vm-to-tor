@@ -55,6 +55,13 @@
 # vm_to_tor_group (str):              * Set it to the group name that vm-to-tor
 #                                       uses. Should be the same that tor uses.
 #                                       Default: "_tor"
+# vm_to_tor_vm_type (str):            * This option tells vm-to-tor what kind of
+#                                       virtual machine software you are running.
+#                                       Possible options are: none,vbox,byhive.
+#                                       Please note that per-vm option 'vm_type'
+#                                       can specify different vm types for
+#                                       different machines.
+#                                       Default: "none"
 # vm_to_tor_show_colors (bool):       * Choosing "NO" prevents colors in service
 #                                       messages.
 #                                       Default: "YES"
@@ -70,6 +77,9 @@
 #                                       Default: ""
 # vm_to_tor_tapN_fw_allow_nfs (list): * Set it to space-separated list of NFS
 #                                       servers VM is allowed to mount from.
+#                                       Default: ""
+# vm_to_tor_tapN_vm_type (str):       * Specifies vm type on per-vm basis. See
+#                                       'vm_to_tor_vm_type'.
 #                                       Default: ""
 #
 
@@ -115,6 +125,7 @@ load_rc_config ${name}
 : ${vm_to_tor_hs=""}
 : ${vm_to_tor_user="_tor"}
 : ${vm_to_tor_group="_tor"}
+: ${vm_to_tor_vm_type="none"}
 : ${vm_to_tor_show_colors="YES"}
 : ${vm_to_tor_fw_rule_gap="0"}
 
@@ -168,8 +179,18 @@ is_tor_installed() {
   [ -x ${LOCALBASE}/bin/tor ] || return 1
 }
 
+get_option_by_name() {
+  eval echo "\"\$vm_to_tor_${1}\""
+}
+
 get_per_vm_option() {
   eval echo "\"\$vm_to_tor_${1}_${2}\""
+}
+
+get_per_vm_option_or_default() {
+  local val=$(get_per_vm_option $1 $2)
+  [ -n "$val" ] || val=$(get_option_by_name $2)
+  echo "$val"
 }
 
 set_per_vm_option() {
@@ -276,6 +297,20 @@ mkdir_perms() {
   (mkdir "${1}" && set_file_perms_rwx "${1}") > /dev/null 2>&1
 }
 
+vm_type_to_group() {
+  case $1 in
+    none)
+      echo "nobody"
+      ;;
+    vbox)
+      echo "vboxusers"
+      ;;
+    byhive)
+      echo "xxxxxx"
+      ;;
+  esac
+}
+
 ## major steps in init/fini
 
 create_dirs() {
@@ -355,7 +390,7 @@ create_tap() {
     if !(ifconfig $iface create && \
          ifconfig $iface up && \
          ifconfig $iface inet "${vm_to_tor_net_pattern}.${vm_id}.1/24" && \
-         chown root:vboxusers /dev/$iface && \
+         chown root:$(vm_type_to_group $(get_per_vm_option_or_default $iface "vm_type")) /dev/$iface && \
          chmod 0660 /dev/$iface) >/dev/null 2>/dev/null; then
       echo_err "failed to create interface $iface"
       destroy_tap_silent
@@ -380,9 +415,25 @@ destroy_tap_silent() {
   done
 }
 
+check_config_vm_type() {
+  case "$1" in
+    none|vbox|byhive)
+      ;;
+    *)
+      echo_err "unknown vm_type=$1 set"
+      return 1
+      ;;
+  esac
+}
+
 check_config() {
   [ $(count_tunnels) -gt 0 ] ||
-    ! echo_err "no tunnels: 'vm_to_tor_ifaces' should have at least one tapN tunel set" || return 1
+    ! echo_err "no tunnels: 'vm_to_tor_ifaces' should have at least one tapN tunnel set" || return 1
+  check_config_vm_type "${vm_to_tor_vm_type}" || return 1
+  for iface in ${vm_to_tor_ifaces}; do
+    local vm_type=$(get_per_vm_option $iface "vm_type")
+    [ -z "${vm_type}" ] || check_config_vm_type "${vm_type}" || return 1
+  done
 }
 
 check_sysctl() {
@@ -790,7 +841,7 @@ vm_to_tor_start() {
     add_ipfw_rules &&
     start_daemons &&
     start_tor &&
-    echo_out "started: ${vm_to_tor_ifaces}"
+    echo_out "started with interfaces ${vm_to_tor_ifaces}"
   ) || ! echo_err "failed to start $nameb" || return 1
 }
 
@@ -880,7 +931,7 @@ vm_to_tor_stop() {
   stop_tor || fail=$((fail+1))
   [ $fail -ne 0 ] || delete_dir || fail=$((fail+1))
   [ $fail -eq 0 ] || ! echo_err "failed to stop $nameb: $fail problems" || return 1
-  [ $fail -ne 0] || echo_out "stopped"
+  [ $fail -ne 0 ] || echo_out "stopped"
 }
 
 command="/usr/bin/true"
