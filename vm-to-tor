@@ -77,6 +77,11 @@
 #                                       Default: ""
 # vm_to_tor_tapN_fw_allow_nfs (list): * Set it to space-separated list of NFS
 #                                       servers VM is allowed to mount from.
+#                                       Currently vm-to-tor only supports
+#                                       NFS servers running on host. Please
+#                                       note that adding remote NFS servers
+#                                       would have required adding routing
+#                                       entries or NAT rules.
 #                                       Default: ""
 # vm_to_tor_tapN_vm_type (str):       * Specifies vm type on per-vm basis. See
 #                                       'vm_to_tor_vm_type'.
