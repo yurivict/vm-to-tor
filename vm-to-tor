@@ -55,8 +55,8 @@
 # vm_to_tor_group (str):              * Set it to the group name that vm-to-tor
 #                                       uses. Should be the same that tor uses.
 #                                       Default: "_tor"
-# vm_to_tor_show_colors (bool):       * Choosing "NO" prevents service status
-#                                       output to have colors.
+# vm_to_tor_show_colors (bool):       * Choosing "NO" prevents colors in service
+#                                       messages.
 #                                       Default: "YES"
 # vm_to_tor_fw_rule_gap (uint):       * Setting the positive value makes
 #                                       vm-to-tor leave that many available ipfw
@@ -140,7 +140,8 @@ ck_iface_exists() {
   ifconfig $1 >/dev/null 2>&1
 }
 
-are_any_processes_running_with_msg() {
+are_any_processes_running() {
+  local do_prn=$1
   [ -d ${tor_dir} ] || return 0
   local msg=""
   # dhcp daemon
@@ -152,7 +153,10 @@ are_any_processes_running_with_msg() {
     ! check_process_by_pid_file "${tor_dir}/${iface}/udp-anti-nat.pid" || msg="${msg}* udp anti-nat pid=$(cat ${tor_dir}/${iface}/udp-anti-nat.pid)${NL}"
   done
   # output
-  [ -n "$msg" ] && echo_err "Can't start because essential elements are alive:${NL}${msg}Did you forget to stop ${nameb}? Is there the configuration problem?" && return 1
+  [ -n "$msg" ] &&
+    ([ $do_prn -eq 0 ] ||
+      echo_err "Can't start because essential elements are alive:${NL}${msg}Did you forget to stop ${nameb}? Is there the configuration problem?") &&
+    return 1
 }
 
 is_tor_installed() {
@@ -768,7 +772,7 @@ color_hs_name() {
 vm_to_tor_start() {
   # checks
   is_user_authorized_with_msg "start ${nameb}" || return 1
-  are_any_processes_running_with_msg || return 1
+  are_any_processes_running 1 || return 1
   [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo_err "Tor is not installed, ${nameb} can't be started" || return 1
   # start (every procedure below is responsible for printing its error messages if any)
   (
@@ -859,7 +863,10 @@ vm_to_tor_status() {
 }
 
 vm_to_tor_stop() {
+  # checks
   is_user_authorized_with_msg "stop $nameb" || return 1
+  ! are_any_processes_running 0 || ! echo_err "Not running" || return 1
+  # stop
   local fail=0
   parse_hs || fail=$((fail+1))
   delete_ipfw_rules || fail=$((fail+1))
