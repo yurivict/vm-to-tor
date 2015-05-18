@@ -57,7 +57,7 @@
 #                                       Default: "_tor"
 # vm_to_tor_vm_type (str):            * This option tells vm-to-tor what kind of
 #                                       virtual machine software you are running.
-#                                       Possible options are: none,vbox,byhive.
+#                                       Possible options are: vbox,byhive,none.
 #                                       Please note that per-vm option 'vm_type'
 #                                       can specify different vm types for
 #                                       different machines.
@@ -417,10 +417,10 @@ destroy_tap_silent() {
 
 check_config_vm_type() {
   case "$1" in
-    none|vbox|byhive)
+    vbox|byhive|none)
       ;;
     *)
-      echo_err "unknown vm_type=$1 set"
+      echo_err "unknown vm_type=$1, allowed values are vbox,byhive,none"
       return 1
       ;;
   esac
@@ -684,8 +684,8 @@ write_tor_config_section() {
    echo "# [$torrc_signature] BEGIN vm-to-tor section" &&
    (for iface in ${vm_to_tor_ifaces}; do
       local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
-      echo "DNSListenAddress   172.16.${vm_id}.1    # $torrc_signature"
-      echo "TransListenAddress 172.16.${vm_id}.1    # $torrc_signature"
+      echo "DNSListenAddress   ${vm_to_tor_net_pattern}.${vm_id}.1    # $torrc_signature"
+      echo "TransListenAddress ${vm_to_tor_net_pattern}.${vm_id}.1    # $torrc_signature"
     done) &&
    echo "# [$torrc_signature] END vm-to-tor section") > $conf_tmp_new
   if [ $? = 0 -a -f $conf_tmp_new ]; then
