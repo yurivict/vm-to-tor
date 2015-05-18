@@ -236,7 +236,7 @@ nfs_ports_count() {
 
 nfs_mountd_actual_port() {
   local port
-  port=$(rpcinfo -p | grep " mountd$" | awk '{print $4}' | uniq 2>/dev/null)
+  port=$(rpcinfo -p 2>/dev/null | grep " mountd$" | awk '{print $4}' | uniq)
   if [ $? -ne 0 -o -z "$port" ]; then
     echo_err "can't determine mountd port: NFS requested but mountd isn't running?"
     return 1
