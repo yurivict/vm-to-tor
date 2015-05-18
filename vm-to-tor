@@ -450,9 +450,7 @@ add_ipfw_rules() {
   local step=$(calc_rule_step)
   local port
   local fwcmd="/sbin/ipfw -q"
-
   local nfs_mountd_port
-  nfs_mountd_port=$(nfs_mountd_actual_port) || return 1
 
   for iface in ${vm_to_tor_ifaces}; do
     local vm_id=$(echo $iface | sed -e 's/[a-z]*//')
@@ -463,9 +461,9 @@ add_ipfw_rules() {
     local pidx=0
 
     # NFS if requested (NFS should be befre the main section, because we override TCP here that normally goes to tor)
-    local nfs_hosts=$(get_per_vm_option "${iface}" "fw_allow_nfs")
     local nfs_host nfs_port
-    for nfs_host in $nfs_hosts; do
+    for nfs_host in $(get_per_vm_option $iface "fw_allow_nfs"); do
+      [ -n "$nfs_mountd_port" ] || nfs_mountd_port=$(nfs_mountd_actual_port) || return 1
       for nfs_port in $nfs_ports $nfs_mountd_port; do
         ${fwcmd} add $((cmd+pidx+0)) allow tcp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
         ${fwcmd} add $((cmd+pidx+1)) allow udp from ${vm_net} to ${nfs_host} ${nfs_port} in via $iface keep-state
