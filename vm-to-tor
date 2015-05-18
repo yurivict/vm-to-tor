@@ -3,7 +3,7 @@
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 
 # PROVIDE: vm_to_tor
-# REQUIRE: LOGIN ipfw
+# REQUIRE: LOGIN ipfw sysctl
 # KEYWORD: shutdown
 # BEFORE: tor
 
@@ -120,6 +120,10 @@ load_rc_config ${name}
 
 ## internals
 
+echo_out() {
+  echo "${nameb}: $1"
+}
+
 echo_err() {
   echo "${nameb}: $1" >&2
 }
@@ -155,7 +159,7 @@ are_any_processes_running() {
   # output
   [ -n "$msg" ] &&
     ([ $do_prn -eq 0 ] ||
-      echo_err "Can't start because essential elements are alive:${NL}${msg}Did you forget to stop ${nameb}? Is there the configuration problem?") &&
+      echo_err "can't start because essential elements are alive:${NL}${msg}Did you forget to stop ${nameb}? Is there the configuration problem?") &&
     return 1
   return 0
 }
@@ -213,7 +217,7 @@ nfs_mountd_actual_port() {
   local port
   port=$(rpcinfo -p | grep " mountd$" | awk '{print $4}' | uniq 2>/dev/null)
   if [ $? -ne 0 -o -z "$port" ]; then
-    echo_err "${nameb}: can't determine mountd port: NFS requested but mountd isn't running?"
+    echo_err "can't determine mountd port: NFS requested but mountd isn't running?"
     return 1
   fi
   echo $port
@@ -276,9 +280,9 @@ mkdir_perms() {
 
 create_dirs() {
   rm -rf "${tor_dir}"
-  mkdir_perms "${tor_dir}" || ! echo_err "Failed to create work dir ${tor_dir}" || return 1
+  mkdir_perms "${tor_dir}" || ! echo_err "failed to create work dir ${tor_dir}" || return 1
   for iface in ${vm_to_tor_ifaces}; do
-    mkdir_perms "${tor_dir}/${iface}" || ! echo_err "Failed to create work dir ${tor_dir}/${iface}" || return 1
+    mkdir_perms "${tor_dir}/${iface}" || ! echo_err "failed to create work dir ${tor_dir}/${iface}" || return 1
   done
 }
 
@@ -293,13 +297,7 @@ check_tor_config() {
    test -w ${LOCALBASE}/etc/tor &&
    touch ${LOCALBASE}/etc/tor/torrc.tmp.${rnd} &&
    rm -f ${LOCALBASE}/etc/tor/torrc.tmp.${rnd}) > /dev/null 2>&1 ||
-     ! echo_err "Failed to check_tor_config" || return 1
-}
-
-ensure_kmod_loaded() {
-#  if !(kldstat -v | grep $1 >/dev/null); then
-#    kldload $1
-#  fi
+     ! echo_err "failed to check_tor_config" || return 1
 }
 
 parse_hs() {
@@ -327,14 +325,14 @@ parse_hs() {
           iport="${fld}"
           ;;
         *)
-          echo_err "Too many fields in the hidden service definition: ${hs}"
+          echo_err "too many fields in the hidden service definition: ${hs}"
           return 1
           ;;
       esac
       fidx=$((fidx+1))
     done
     if [ -z "${iface}" -o -z "${dir}" -o -z "${oport}" -o -z "${iport}" ]; then
-      echo_err "Too few fields in the hidden service definition: ${hs}"
+      echo_err "too few fields in the hidden service definition: ${hs}"
       return 1
     fi
     # fill hs info into global vars
@@ -359,7 +357,7 @@ create_tap() {
          ifconfig $iface inet "${vm_to_tor_net_pattern}.${vm_id}.1/24" && \
          chown root:vboxusers /dev/$iface && \
          chmod 0660 /dev/$iface) >/dev/null 2>/dev/null; then
-      echo_err "Failed to create interface $iface"
+      echo_err "failed to create interface $iface"
       destroy_tap_silent
       return 1
     fi
@@ -369,7 +367,7 @@ create_tap() {
 destroy_tap() {
   for iface in ${vm_to_tor_ifaces}; do
     if ! ifconfig $iface destroy >/dev/null 2>/dev/null; then
-      echo_err "Failed to destroy interface $iface"
+      echo_err "failed to destroy interface $iface"
       destroy_tap_silent
       return 1
     fi
@@ -382,9 +380,18 @@ destroy_tap_silent() {
   done
 }
 
-change_sysctl() {
-  # sysctl vars: VBox process needs to be able to open tapN, and listen on DNS port 53
-  sysctl net.link.tap.user_open=1 >/dev/null
+check_config() {
+  [ $(count_tunnels) -gt 0 ] ||
+    ! echo_err "no tunnels: 'vm_to_tor_ifaces' should have at least one tapN tunel set" || return 1
+}
+
+check_sysctl() {
+  # VM process needs to be able to open tapN
+  [ $(sysctl -n net.link.tap.user_open) -eq 1 ] ||
+    ! echo_err "net.link.tap.user_open is not set" ||
+    ! echo_err "please add the line 'net.link.tap.user_open=1' to /etc/sysctl.conf" ||
+    ! echo_err "or run 'sysctl net.link.tap.user_open=1'" ||
+    return 1
 }
 
 add_ipfw_rules() {
@@ -447,8 +454,6 @@ add_ipfw_rules() {
     # DENY: no other communication is allowed on this interface
     ${fwcmd} add $((cmd+step-1)) deny all from any to any via $iface
 
-    # report
-    echo "${nameb}: Added ipfw rules for VM ${iface} on ${vm_net} to connect to tor"
     # move on
     cmd=$((cmd+step))
   done
@@ -474,24 +479,24 @@ start_daemons() {
   # dhcp daemon
   local cmd="${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vm_to_tor_ifaces}"
   start_daemon_and_check "${cmd}" "${dir}/dhcp-daemon.pid" ||
-    ! echo_err "Failed to start dhcp daemon" || return 1
+    ! echo_err "failed to start dhcp daemon" || return 1
   save_daemon_cmd_file "${cmd}" dhcp-daemon
 
   # anti-nat daemons
   for iface in ${vm_to_tor_ifaces}; do
     local cmd="$(get_per_vm_option ${iface} dns_anti_nat_daemon_cmd)"
     start_daemon_and_check "${cmd}" ${tor_dir}/${iface}/udp-anti-nat.pid ||
-      ! echo_err "Failed to start DNS anti-nat daemon for VM ${iface}" || return 1
+      ! echo_err "failed to start DNS anti-nat daemon for VM ${iface}" || return 1
     save_daemon_cmd_file "${cmd}" "${iface}/udp-anti-nat"
   done
 }
 
 stop_daemons() {
   stop_daemon "${tor_dir}/dhcp-daemon.pid" ||
-    ! echo_err "Failed to stop dhcp daemon" || return 1
+    ! echo_err "failed to stop dhcp daemon" || return 1
   for iface in ${vm_to_tor_ifaces}; do
     stop_daemon "${tor_dir}/${iface}/udp-anti-nat.pid" ||
-      ! echo_err "Failed to stop DNS anti-nat daemon for VM ${iface}" || return 1
+      ! echo_err "failed to stop DNS anti-nat daemon for VM ${iface}" || return 1
   done
 }
 
@@ -501,7 +506,7 @@ start_tor_instance() {
   local gw="$3"
   local cl="$4"
   # create tor data dir
-  mkdir_perms "${dir}/data" || ! echo_err "Failed to create tor data dir ${dir}/data" || return 1
+  mkdir_perms "${dir}/data" || ! echo_err "failed to create tor data dir ${dir}/data" || return 1
   # create blank torrc, because it isn't clear how to avoid using the default
   touch ${dir}/torrc && set_file_perms_r ${dir}/torrc
   # prepare command line arguments
@@ -573,15 +578,14 @@ start_tor_instances() {
     local vm_cl="${vm_to_tor_net_pattern}.${vm_id}.2"
 
     start_tor_instance "${iface}" "${tor_dir}/$iface" "${vm_gw}" "${vm_cl}" ||
-      ! echo_err "Failed to start tor instance for VM $iface" || stop_tor_instances_silent || return 1
+      ! echo_err "failed to start tor instance for VM $iface" || stop_tor_instances_silent || return 1
   done
 }
 
 stop_tor_instances() {
   for iface in ${vm_to_tor_ifaces}; do
     ([ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid)) ||
-       ! echo_err "Failed to stop tor instance for VM $iface" || ! stop_tor_instances_silent || return 1
-    # XXX check the correctness of the above
+       ! echo_err "failed to stop tor instance for VM $iface" || ! stop_tor_instances_silent || return 1
   done
 }
 
@@ -774,20 +778,20 @@ vm_to_tor_start() {
   # checks
   is_user_authorized_with_msg "start ${nameb}" || return 1
   are_any_processes_running 1 || return 1
-  [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo_err "Tor is not installed, ${nameb} can't be started" || return 1
+  [ ${vm_to_tor_use_base} = "YES" ] || is_tor_installed || ! echo_err "tor is not installed, ${nameb} can't be started" || return 1
   # start (every procedure below is responsible for printing its error messages if any)
   (
+    check_config &&
+    check_sysctl &&
     create_dirs &&
     parse_hs &&
     ([ ${vm_to_tor_use_base} = "NO" ] || check_tor_config) &&
-    ensure_kmod_loaded "if_tap" &&
-    ensure_kmod_loaded "ipfw" &&
     create_tap &&
     add_ipfw_rules &&
     start_daemons &&
-    change_sysctl &&
-    start_tor
-  ) || ! echo_err "Failed to start $nameb" || return 1
+    start_tor &&
+    echo_out "started: ${vm_to_tor_ifaces}"
+  ) || ! echo_err "failed to start $nameb" || return 1
 }
 
 vm_to_tor_status() {
@@ -866,7 +870,7 @@ vm_to_tor_status() {
 vm_to_tor_stop() {
   # checks
   is_user_authorized_with_msg "stop $nameb" || return 1
-  ! are_any_processes_running 0 || ! echo_err "Not running" || return 1
+  ! are_any_processes_running 0 || ! echo_err "not running" || return 1
   # stop
   local fail=0
   parse_hs || fail=$((fail+1))
@@ -875,7 +879,8 @@ vm_to_tor_stop() {
   destroy_tap || fail=$((fail+1))
   stop_tor || fail=$((fail+1))
   [ $fail -ne 0 ] || delete_dir || fail=$((fail+1))
-  [ $fail -eq 0 ] || ! echo_err "Failed to stop $nameb: $fail problems" || return 1
+  [ $fail -eq 0 ] || ! echo_err "failed to stop $nameb: $fail problems" || return 1
+  [ $fail -ne 0] || echo_out "stopped"
 }
 
 command="/usr/bin/true"
