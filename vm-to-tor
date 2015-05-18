@@ -157,6 +157,7 @@ are_any_processes_running() {
     ([ $do_prn -eq 0 ] ||
       echo_err "Can't start because essential elements are alive:${NL}${msg}Did you forget to stop ${nameb}? Is there the configuration problem?") &&
     return 1
+  return 0
 }
 
 is_tor_installed() {
@@ -237,7 +238,7 @@ calc_rule_step() {
       return
     fi
   done
-  echo_err "${nameb}: too many ports requested"
+  echo_err "too many ports requested"
   return 1
 }
 
