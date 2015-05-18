@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 
@@ -8,30 +8,69 @@
 # BEFORE: tor
 
 # Add the following lines to /etc/rc.conf to enable vm_to_tor:
-# vm_to_tor_enable (bool):	Set to "YES" to enable vm-to-tor. Default: "NO"
-# vm_to_tor_ifaces (list):	Set it to the list of interfaces. Default: "tap0"
-#                                 At least one interface is required.
-# vm_to_tor_net_pattern (str):Set it to the network pattern. Default: "172.16"
-# vm_to_tor_rule_base (uint):	Set it to the the rule number block location. Default: "3000"
-# vm_to_tor_extra_ports (list):	Set it to the the list of ports to open from host to VMs. Default: ""
-# vm_to_tor_control_socket (bool):	Set it to "YES" to allow host administration using ControlSocket. Default: "NO"
-# vm_to_tor_allow_cookie_auth (bool):	Set it to "YES" to allow cookie administration on ControlSocket. Default: "NO"
-# vm_to_tor_use_base (bool):	Set it to "YES" to use central tor daemon on host. Default: "NO"
-#                                 By default individual tor instance is launched per interface.
-#                                 Choosing "YES" requires less resources, but is marginally less secure.
-#                                 It requires tor service to run, but it should start after vm-to-tor.
-# vm_to_tor_hs (str):		Set it to the list of hidden services to route to VMs. Default: ""
-#                                 List is 'newline' or '|' separarated.
-#                                 Every element represents the hidden service in the format:
-#                                   tapN /dir/to/hs/ oport iport
-# vm_to_tor_user (str):	Set it to the user name that vm-to-tor uses. Should be the same that tor uses. Default: "_tor"
-# vm_to_tor_group (str):	Set it to the group name that vm-to-tor uses. Should be the same that tor uses. Default: "_tor"
-# vm_to_tor_show_colors (bool):Choosing "NO" prevents service status output to have colors. Default: "YES"
-# vm_to_tor_fw_rule_gap (uint):Setting the positive value makes vm-to-tor leave that many available ipfw rules for every VM.
-#                                This is to allow an expecrt user to add any extra-rules per VM. Default: "0"
-# ## per-VM options
-# vm_to_tor_tapN_tor_options (str): Set it to newline-separated list of additional options to add to every VM. Default: ""
-# vm_to_tor_tapN_fw_allow_nfs (list): Set it to space-separated list of NFS servers VM is allowed to mount from. Default: ""
+# vm_to_tor_enable (bool):            * Set to "YES" to enable vm-to-tor.
+#                                       Default: "NO"
+# vm_to_tor_ifaces (list):            * Set it to the list of interfaces.
+#                                       At least one interface is required.
+#                                       Default: "tap0"
+# vm_to_tor_net_pattern (str):        * Set it to the network pattern.
+#                                       Default: "172.16"
+# vm_to_tor_rule_base (uint):         * Set it to the the rule number block
+#                                       location. Default: "3000"
+# vm_to_tor_extra_ports (list):       * Set it to the the list of ports to open
+#                                       from host to VMs. Default: ""
+# vm_to_tor_control_socket (bool):    * Set it to "YES" to allow host
+#                                       administration using ControlSocket.
+#                                       Default: "NO"
+# vm_to_tor_allow_cookie_auth (bool): * Set it to "YES" to allow cookie
+#                                       administration on ControlSocket.
+#                                       Default: "NO"
+# vm_to_tor_use_base (bool):          * Set it to "YES" to use central tor
+#                                       daemon on host.
+#                                       By default individual tor instance is
+#                                       launched per interface.
+#                                       Choosing "YES" will share the host tor
+#                                       instance will require slightly less
+#                                       resources, and will share the same
+#                                       tor entry guard, but all data will pass
+#                                       through the same process. This may be
+#                                       considered more secure by some, and less
+#                                       secure by others.
+#                                       It requires tor service to run, but tor
+#                                       should start after vm-to-tor.
+#                                       CAVEAT Choosing "YES" runs into tor
+#                                       inability to change config in a graceful
+#                                       way, so vm-to-tor will be writing
+#                                       torrc file, which can conflict with tor.
+#                                       Default: "NO" (WARNING BROKEN, UNTESTED)
+# vm_to_tor_hs (str):                 * Set it to the list of hidden services to
+#                                       route to VMs.
+#                                       List is 'newline' or '|' separarated.
+#                                       Hidden services are in the format:
+#                                       tapN /dir/to/hidden/svc oport iport
+#                                       Default: ""
+# vm_to_tor_user (str):               * Set it to the user name that vm-to-tor
+#                                       uses. Should be the same that tor uses.
+#                                       Default: "_tor"
+# vm_to_tor_group (str):              * Set it to the group name that vm-to-tor
+#                                       uses. Should be the same that tor uses.
+#                                       Default: "_tor"
+# vm_to_tor_show_colors (bool):       * Choosing "NO" prevents service status
+#                                       output to have colors.
+#                                       Default: "YES"
+# vm_to_tor_fw_rule_gap (uint):       * Setting the positive value makes
+#                                       vm-to-tor leave that many available ipfw
+#                                       rules for every VM.
+#                                       This is to allow an expecrt user to add
+#                                       any extra-rules per VM.
+#                                       Default: "0"
+# ### per-VM options
+# vm_to_tor_tapN_tor_options (str):   * Set it to the newline-separated list of
+#                                       additional options to add to every VM.
+#                                       Default: ""
+# vm_to_tor_tapN_fw_allow_nfs (list): * Set it to space-separated list of NFS
+#                                       servers VM is allowed to mount from.
+#                                       Default: ""
 #
 
 #
@@ -427,7 +466,7 @@ stop_daemon() {
 
 start_daemons() {
   local dir="${tor_dir}"
-  # DHCP daemon
+  # dhcp daemon
   local cmd="${LOCALBASE}/bin/tiny-dhcp-server -d -U ${vm_to_tor_user}:${vm_to_tor_group} -p ${dir}/dhcp-daemon.pid -l ${dir}/dhcp-daemon.log ${vm_to_tor_ifaces}"
   start_daemon_and_check "${cmd}" "${dir}/dhcp-daemon.pid" ||
     ! echo_err "Failed to start dhcp daemon" || return 1
@@ -827,7 +866,7 @@ vm_to_tor_stop() {
   stop_daemons || fail=$((fail+1))
   destroy_tap || fail=$((fail+1))
   stop_tor || fail=$((fail+1))
-  delete_dir || fail=$((fail+1))
+  [ $fail -ne 0 ] || delete_dir || fail=$((fail+1))
   [ $fail -eq 0 ] || ! echo_err "Failed to stop $nameb: $fail problems" || return 1
 }
 
