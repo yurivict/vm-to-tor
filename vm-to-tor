@@ -57,7 +57,7 @@
 #                                       Default: "_tor"
 # vm_to_tor_vm_type (str):            * This option tells vm-to-tor what kind of
 #                                       virtual machine software you are running.
-#                                       Possible options are: vbox,byhive,none.
+#                                       Possible options are: vbox,bhyve,none.
 #                                       Please note that per-vm option 'vm_type'
 #                                       can specify different vm types for
 #                                       different machines.
@@ -310,8 +310,8 @@ vm_type_to_group() {
     vbox)
       echo "vboxusers"
       ;;
-    byhive)
-      echo "xxxxxx"
+    bhyve)
+      echo "wheel"
       ;;
   esac
 }
@@ -423,10 +423,10 @@ destroy_tap_silently() {
 
 check_config_vm_type() {
   case "$1" in
-    vbox|byhive|none)
+    vbox|bhyve|none)
       ;;
     *)
-      echo_err "unknown vm_type=$1, allowed values are vbox,byhive,none"
+      echo_err "unknown vm_type=$1, allowed values are vbox,bhyve,none"
       return 1
       ;;
   esac
@@ -748,10 +748,31 @@ delete_ipfw_rules() {
   done
 }
 
+guess_vm_type() {
+  local proc_line=$(procstat -c $1 | tail -1)
+  local proc_vbox=$(echo "${proc_line}" | grep " VirtualBox ")
+  if [ -n "${proc_vbox}" ]; then
+    echo "vbox"
+    return
+  fi
+  local proc_bhyve=$(echo "${proc_line}" | grep " bhyve ")
+  if [ -n "${proc_bhyve}" ]; then
+    echo "bhyve"
+    return
+  fi
+}
+
 guess_process_name() {
-  local proc_vbox=$(procstat -c $1 | tail -1 | grep "VirtualBox")
+  local proc_line=$(procstat -c $1 | tail -1)
+  local proc_vbox=$(echo "${proc_line}" | grep " VirtualBox ")
   if [ -n "${proc_vbox}" ]; then
     echo $(echo ${proc_vbox} | sed -E "s/.*--comment (([^ ]| [^-]| -[^-])*)( --.*|[[:space:]]*)$/\1/g")
+    return
+  fi
+  local proc_bhyve=$(echo "${proc_line}" | grep " bhyve ")
+  if [ -n "${proc_bhyve}" ]; then
+    echo $(echo ${proc_bhyve} | sed -E "s/.* bhyve: (.*)$/\1/g")
+    return
   fi
 }
 
@@ -902,6 +923,10 @@ vm_to_tor_status() {
       strOpenedPid=$(ifconfig ${iface} | grep -i open | sed -e 's/[a-zA-Z[:space:]]*//g')
       if [ -n "${strOpenedPid}" ]; then
         descr="vm-pid=${strOpenedPid}"
+        local vm_type="$(guess_vm_type ${strOpenedPid})"
+        if [ -n "${vm_type}" ]; then
+          descr="${descr} vm-type=${vm_type}"
+        fi
         local processName=$(color_os_name "$(guess_process_name ${strOpenedPid})" ${do_colors})
         if [ -n "${processName}" ]; then
           descr="${descr} vm-name=${processName}"
