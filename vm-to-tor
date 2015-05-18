@@ -393,7 +393,7 @@ create_tap() {
          chown root:$(vm_type_to_group $(get_per_vm_option_or_default $iface "vm_type")) /dev/$iface && \
          chmod 0660 /dev/$iface) >/dev/null 2>/dev/null; then
       echo_err "failed to create interface $iface"
-      destroy_tap_silent
+      destroy_tap_silently
       return 1
     fi
   done
@@ -403,16 +403,17 @@ destroy_tap() {
   for iface in ${vm_to_tor_ifaces}; do
     if ! ifconfig $iface destroy >/dev/null 2>/dev/null; then
       echo_err "failed to destroy interface $iface"
-      destroy_tap_silent
+      destroy_tap_silently
       return 1
     fi
   done
 }
 
-destroy_tap_silent() {
+destroy_tap_silently() {
   for iface in ${vm_to_tor_ifaces}; do
-    ifconfig $iface destroy >/dev/null 2>/dev/null
+    ifconfig $iface destroy >/dev/null 2>&1
   done
+  return 0
 }
 
 check_config_vm_type() {
@@ -523,6 +524,10 @@ stop_daemon() {
   #      However, it looks like there is currently no way for the shell program to wait for the file deletion.
 }
 
+stop_daemon_silently() {
+  kill $(cat $1) >/dev/null 2>&1
+}
+
 start_daemons() {
   local dir="${tor_dir}"
   # dhcp daemon
@@ -547,6 +552,14 @@ stop_daemons() {
     stop_daemon "${tor_dir}/${iface}/udp-anti-nat.pid" ||
       ! echo_err "failed to stop DNS anti-nat daemon for VM ${iface}" || return 1
   done
+}
+
+stop_daemons_silently() {
+  stop_daemon_silently "${tor_dir}/dhcp-daemon.pid"
+  for iface in ${vm_to_tor_ifaces}; do
+    stop_daemon_silently "${tor_dir}/${iface}/udp-anti-nat.pid"
+  done
+  return 0
 }
 
 start_tor_instance() {
@@ -627,23 +640,29 @@ start_tor_instances() {
     local vm_cl="${vm_to_tor_net_pattern}.${vm_id}.2"
 
     start_tor_instance "${iface}" "${tor_dir}/$iface" "${vm_gw}" "${vm_cl}" ||
-      ! echo_err "failed to start tor instance for VM $iface" || stop_tor_instances_silent || return 1
+      ! echo_err "failed to start tor instance for VM $iface" || return 1
   done
 }
 
 stop_tor_instances() {
   for iface in ${vm_to_tor_ifaces}; do
     ([ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid)) ||
-       ! echo_err "failed to stop tor instance for VM $iface" || ! stop_tor_instances_silent || return 1
+       ! echo_err "failed to stop tor instance for VM $iface" || ! stop_tor_instances_silently || return 1
   done
 }
 
-stop_tor_instances_silent() {
+stop_tor_instances_silently() {
   for iface in ${vm_to_tor_ifaces}; do
-    [ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid) >/dev/null 2>/dev/null
+    [ -s ${tor_dir}/${iface}/tor.pid ] && kill $(cat ${tor_dir}/${iface}/tor.pid) >/dev/null 2>&1
   done
   # emergency stop, something went wrong, so keep logs
   return 0
+}
+
+stop_all_silently() {
+  stop_tor_instances_silently
+  destroy_tap_silently
+  stop_daemons_silently
 }
 
 start_tor() {
@@ -840,7 +859,7 @@ vm_to_tor_start() {
     start_daemons &&
     start_tor &&
     echo_out "started with interfaces ${vm_to_tor_ifaces}"
-  ) || ! echo_err "failed to start $nameb" || return 1
+  ) || ! echo_err "failed to start $nameb" || ! stop_all_silently || return 1
 }
 
 vm_to_tor_status() {
