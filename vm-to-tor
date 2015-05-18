@@ -443,11 +443,14 @@ check_config() {
 }
 
 check_sysctl() {
-  # VM process needs to be able to open tapN
+  # VM process needs to be able to open tapN, so need net.link.tap.user_open=1.
+  # Even when it is set in /etc/sysctl.conf, if_tap might have been not loaded
+  # when sysctl was initialized. We depend on if_tap, so it must be loaded by now,
+  # therefore rerun sysctl before the check to make sure it is set.
+  /etc/rc.d/sysctl start >/dev/null 2>&1
   [ $(sysctl -n net.link.tap.user_open) -eq 1 ] ||
     ! echo_err "net.link.tap.user_open is not set" ||
     ! echo_err "please add the line 'net.link.tap.user_open=1' to /etc/sysctl.conf" ||
-    ! echo_err "or run 'sysctl net.link.tap.user_open=1'" ||
     return 1
 }
 
