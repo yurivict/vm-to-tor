@@ -1,4 +1,4 @@
-# vm-to-tor: Connect VirtualBox machines to TOR on FreeBSD (FreeBSD port will be named security/vm-to-tor)
+# vm-to-tor: Connect virtual machines (VirtualBox, bhyve, etc) to TOR on FreeBSD (FreeBSD port will be named security/vm-to-tor)
 
 This is the FreeBSD service that allows to seamlessly connect any number of the VirtualBox machines to the TOR anonymity network. (https://www.torproject.org/)
 
