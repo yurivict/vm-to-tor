@@ -4,7 +4,7 @@ This is the FreeBSD service that allows to seamlessly connect any number of the 
 
 ## Screenshot
 
-![Alt text](https://github.com/yurivict/vm-to-tor/blob/master/screenshot.jpg "Running with several VMs")
+![Alt text](https://raw.githubusercontent.com/yurivict/vm-to-tor/master/screenshot.png "Running with several VMs")
 
 ## Installation (in less than 15 seconds)
 
