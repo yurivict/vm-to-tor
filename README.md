@@ -2,6 +2,10 @@
 
 This is the FreeBSD service that allows to seamlessly connect any number of the VirtualBox machines to the TOR anonymity network. (https://www.torproject.org/)
 
+## Screenshot
+
+![Alt text](https://github.com/yurivict/vm-to-tor/screenshot.jpg "Running with several VMs")
+
 ## Installation (in less than 15 seconds)
 
 (Currently you need this patch added to tor port and tor rebuilt and reinstalled: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199381)
