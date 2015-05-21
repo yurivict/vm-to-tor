@@ -1,6 +1,6 @@
-# vm-to-tor: Connect virtual machines (VirtualBox, bhyve, etc) to TOR on FreeBSD (FreeBSD port will be named security/vm-to-tor)
+# vm-to-tor: Connect virtual machines (VirtualBox, bhyve, etc) to Tor on FreeBSD (FreeBSD port security/vm-to-tor)
 
-This is the FreeBSD service that allows to seamlessly connect any number of the VirtualBox machines to the TOR anonymity network. (https://www.torproject.org/)
+This is the FreeBSD service that allows to seamlessly connect any number of the VirtualBox machines to the Tor anonymity network. (https://www.torproject.org/)
 
 ## Screenshot
 
@@ -22,12 +22,12 @@ cat freebsd-vm-to-tor/rc.conf.sample >> /etc/rc.conf
 rm -rf freebsd-vm-to-tor
 ```
 
-In order to run it you need to have both VirtualBox and TOR installed and running, and execute these commands as root:
+In order to run it you need to have both VirtualBox and Tor installed and running, and execute these commands as root:
 ```shell
 /usr/local/etc/rc.d/vm-to-tor start
 /usr/local/etc/rc.d/tor restart
 ```
-Choose "Bridged Adapter" with one of the tapN interfaces for the VM you want to connect to TOR.
+Choose "Bridged Adapter" with one of the tapN interfaces for the VM you want to connect to Tor.
 
 ## Installation (step by step)
 
@@ -39,7 +39,7 @@ cp vm-to-tor /usr/local/etc/rc.d/
 Also add the following section to the system configuration file /etc/rc.conf:<br/>
 ```shell
 #
-# For VirtualBox VMs to TOR connections
+# For VirtualBox VMs to Tor connections
 #
 firewall_enable="YES"
 firewall_type="open"
@@ -63,17 +63,17 @@ After this you need to choose "Bridged Adapter" as a networking adapter for VMs 
 
 ## How does vm-to-tor work?
 
-vm-to-tor creates tunnel interfaces and sets them up for the use by the virtual machines, so that all network traffic of the VMs is tunneled to the host level network interface. It also adds appropriate firewall rules that send all network traffic originating in the VMs directly to TOR router running on the host. These firewall rules also prevent any leaks of traffic through the original unsecured network connection on the host.
+vm-to-tor creates tunnel interfaces and sets them up for the use by the virtual machines, so that all network traffic of the VMs is tunneled to the host level network interface. It also adds appropriate firewall rules that send all network traffic originating in the VMs directly to Tor router running on the host. These firewall rules also prevent any leaks of traffic through the original unsecured network connection on the host.
 
 ## Background
 
 Tor Project actively promotes the so-called "Tor Browser Bundle" (TBB). The security of TBB depends on the vast and complex codebase that firefox browser is built from being free of bugs. Many bugs have been found in the firefox code in the past, particularly some severe JavaScript bugs that allowed for some breaches of anonymity of TBB users in the past. There is also no guarantee that more bugs will not be found. That is why many TBB users believe that it is much safer to disable JavaScript altogether, and thet they should limit what websites they should visit.
 
-vm-to-tor took very different approach, "security by isolation". It allows user to easily connect the OS of his/her choice (VM guest) to the TOR router that runs on the host. This guest OS is completely isolated from the host and other guests, and can only connect to the TOR network. Therefore, regardless of what bugs any particular program that runs in the guest might have, such bugs just can't reveal the real IP of the user because anything they do always goes only through the TOR connection through a very simple tunnel.
+vm-to-tor took very different approach, "security by isolation". It allows user to easily connect the OS of his/her choice (VM guest) to the Tor router that runs on the host. This guest OS is completely isolated from the host and other guests, and can only connect to the Tor network. Therefore, regardless of what bugs any particular program that runs in the guest might have, such bugs just can't reveal the real IP of the user because anything they do always goes only through the Tor connection through a very simple tunnel.
 
-There is another product, Whonix (https://www.whonix.org), that also chose security-by-isolation approach. However, Whonix requires the second VM to act as a TOR router host.
+There is another product, Whonix (https://www.whonix.org), that also chose security-by-isolation approach. However, Whonix requires the second VM to act as a Tor router host.
 
-While providing an excellent security, security-by-isolation approach didn't become very popular primarily due to the setup difficulties. It requires virtual machines being setup in particular way, firewall rules, TOR setup. vm-to-tor eventually made such setup very easy for FreeBSD users.
+While providing an excellent security, security-by-isolation approach didn't become very popular primarily due to the setup difficulties. It requires virtual machines being setup in particular way, firewall rules, Tor setup. vm-to-tor eventually made such setup very easy for FreeBSD users.
 
 vm-to-tor works with virtually no overhead, and installs as two standard FreeBSD services that can be started any time. It allows to run any number of guests, all completely isolated from each other and from the host.
 
@@ -82,12 +82,12 @@ vm-to-tor works with virtually no overhead, and installs as two standard FreeBSD
 * For better experience with vm-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
 * Stopping vm-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but this isn't a very important problem.
 * Changing networking type to tapN while VM is running also causes VM crash. This is another bug in VirtualBox.
-* Programs requiring UDP will not work, because TOR currently doesn't support UDP. Only DNS UDP is supported.
-* vm-to-tor writes torrc files directly due to the lack of the privileged auto-authentication feature in TorCtrl protocol. Normally TOR doesn't self-modify torrc, but if any other programs (ex. arm or vidalia) would modify TOR config, vm-to-tor changes to torrc can be either lost or impossible to remove for vm-to-tor (see TOR ticket#15649)
+* Programs requiring UDP will not work, because Tor currently doesn't support UDP. Only DNS UDP is supported.
+* vm-to-tor writes torrc files directly due to the lack of the privileged auto-authentication feature in TorCtrl protocol. Normally Tor doesn't self-modify torrc, but if any other programs (ex. arm or vidalia) would modify Tor config, vm-to-tor changes to torrc can be either lost or impossible to remove for vm-to-tor (see tor ticket#15649)
 
 ## Ports
 
-I am willing to create corresponding FreeBSD ports if there is sufficient user interest.
+Please use FreeBSD port security/vm-to-tor to install vm-to-tor.
 
 ## Donations
 
