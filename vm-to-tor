@@ -91,7 +91,7 @@
 #
 # This module depends on these external executables in LOCALBASE:
 # * bin/tor
-# * bin/tiny-dhcp
+# * bin/tiny-dhcp-server
 # * bin/tiny-udp-anti-nat
 #
 
