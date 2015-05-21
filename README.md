@@ -8,8 +8,6 @@ This is the FreeBSD service that allows to seamlessly connect any number of the 
 
 ## Installation (in less than 15 seconds)
 
-(Currently you need this patch added to tor port and tor rebuilt and reinstalled: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199381)
-
 You need to have the ports tree installed. Here are all commands you need to install vm-to-tor, execute them as root:
 ```shell
 cd /tmp
