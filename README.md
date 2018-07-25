@@ -6,60 +6,49 @@ This is the FreeBSD service that allows to seamlessly connect any number of the 
 
 ![Alt text](https://raw.githubusercontent.com/yurivict/vm-to-tor/master/screenshot.png "Running with several VMs")
 
-## Installation (in less than 15 seconds)
+## Installation
 
-You need to have the ports tree installed. Here are all commands you need to install vm-to-tor, execute them as root:
+vm-to-tor is installed by running this command as root:
 ```shell
-cd /tmp
-git clone https://github.com/yurivict/tiny-dhcp-server
-cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
-rm -rf tiny-dhcp-server
-pkg install --automatic --no-repo-update python34
-(cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 make install clean)
-git clone https://github.com/yurivict/freebsd-vm-to-tor
-cp freebsd-vm-to-tor/vm-to-tor /usr/local/etc/rc.d/
-cat freebsd-vm-to-tor/rc.conf.sample >> /etc/rc.conf
-rm -rf freebsd-vm-to-tor
+pkg install vm-to-tor
 ```
 
-In order to run it you need to have both VirtualBox and Tor installed and running, and execute these commands as root:
-```shell
-/usr/local/etc/rc.d/vm-to-tor start
-/usr/local/etc/rc.d/tor restart
-```
-Choose "Bridged Adapter" with one of the tapN interfaces for the VM you want to connect to Tor.
+## Running
 
-## Installation (step by step)
+### Setup the service
 
-To install vm-to-tor itself copy the file:<br/>
-```shell
-cp vm-to-tor /usr/local/etc/rc.d/
-```
-
-Also add the following section to the system configuration file /etc/rc.conf:<br/>
+Add the following section to the system configuration file /etc/rc.conf:<br/>
 ```shell
 #
 # For VirtualBox VMs to Tor connections
 #
 firewall_enable="YES"
 firewall_type="open"
-vbox_tor_ifaces="tap0 tap1 tap2"
+vbox_tor_ifaces="tap0 tap1"
 vm_to_tor_enable="YES"
 vm_to_tor_ifaces="${vbox_tor_ifaces}"
 ```
 
-vm-to-tor depends on this DHCP server: https://github.com/yurivict/tiny-dhcp-server. To install it execute these commands (which will require the ports tree):
+This setup allows you to run 2 different virtual machines connected to TOR (on tap0 and tap1 tunnels).
+
+Alternatively, add this line to /etc/rc.conf:<br/>
 ```shell
-git clone https://github.com/yurivict/tiny-dhcp-server
-cp tiny-dhcp-server/tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
-rm -rf tiny-dhcp-server
-pkg install --automatic --no-repo-update python34
-(cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 make install clean)
+. /usr/local/etc/vm-to-tor.rc.conf.simple
+```
+and adjust /usr/local/etc/vm-to-tor.rc.conf.simple for your needs.
+
+### Run the service
+
+In order to run vm-to-tor, you need to execute these commands as root:
+```shell
+sysrc vm_to_tor_enable="YES"
+service vm-to-tor start
 ```
 
-This setup allows you to run 3 different virtual machines connected to TOR (on tap0, tap1 and tap2 tunnels).
+### Setup in the Virtual Box
 
-After this you need to choose "Bridged Adapter" as a networking adapter for VMs in VirtualBox Manager. You need to assign one of these tapN devices to the bridged interface of each VM you want to connect to TOR. As simple as that.
+Click on "Settings" for the virtual machine that you want to connect to the Tor betwork.
+Click on "Network", choose "Bridged Adapter" with one of the tapN interfaces.
 
 ## How does vm-to-tor work?
 
@@ -82,8 +71,7 @@ vm-to-tor works with virtually no overhead, and installs as two standard FreeBSD
 * For better experience with vm-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
 * Stopping vm-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but this isn't a very important problem.
 * Changing networking type to tapN while VM is running also causes VM crash. This is another bug in VirtualBox.
-* Programs requiring UDP will not work, because Tor currently doesn't support UDP. Only DNS UDP is supported.
-* vm-to-tor writes torrc files directly due to the lack of the privileged auto-authentication feature in TorCtrl protocol. Normally Tor doesn't self-modify torrc, but if any other programs (ex. arm or vidalia) would modify Tor config, vm-to-tor changes to torrc can be either lost or impossible to remove for vm-to-tor (see tor ticket#15649)
+* Programs requiring UDP will not work because Tor currently doesn't support UDP. Only DNS UDP is supported.
 
 ## Ports
 
