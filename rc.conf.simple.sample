@@ -12,3 +12,5 @@ firewall_enable="YES"
 firewall_type="open"
 vm_to_tor_enable="YES"
 vm_to_tor_vm_type="vbox"
+# define which machines to support
+vm_to_tor_ifaces="tap0 tap1"
