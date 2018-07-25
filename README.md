@@ -73,10 +73,6 @@ vm-to-tor works with virtually no overhead, and installs as two standard FreeBSD
 * Changing networking type to tapN while VM is running also causes VM crash. This is another bug in VirtualBox.
 * Programs requiring UDP will not work because Tor currently doesn't support UDP. Only DNS UDP is supported.
 
-## Ports
-
-Please use FreeBSD port security/vm-to-tor to install vm-to-tor.
-
 ## Donations
 
 We would appreciate donations: 1LDxJDTPkRS4RrPbzbYYPFr15sqmMZuJj5
