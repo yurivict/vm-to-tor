@@ -68,7 +68,6 @@ vm-to-tor works with virtually no overhead, and installs as two standard FreeBSD
 
 ## Caveats
 
-* For a better experience with vm-to-tor you need kernel with this patch: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=199136 Without this patch tapN interfaces will be brought down with every guest reboot, and you will need to bring them up manually every time.
 * Stopping vm-to-tor while VMs are running currently causes all involved VMs to crash. I believe this is a bug in VirtualBox, but this isn't a very important problem.
 * Changing networking type to tapN while VM is running also causes VM crash. This is another bug in VirtualBox.
 * Programs requiring UDP will not work because Tor currently doesn't support UDP. Only DNS UDP is supported.
